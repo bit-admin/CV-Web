@@ -1,0 +1,10 @@
+.DS_Store
+node_modules
+dist/
+coverage/
+.wrangler/
+.vite/
+
+public/core/
+public/fonts/
+public/licenses/
