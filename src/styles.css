@@ -1,3 +1,49 @@
+/* Mobile blocker */
+.mobile-blocker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #e5e7eb;
+  padding: 24px;
+}
+
+.mobile-blocker__card {
+  max-width: 400px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.mobile-blocker__icon {
+  color: #9ca3af;
+  margin-bottom: 20px;
+}
+
+.mobile-blocker__title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 2dvb;
+}
+
+.mobile-blocker__cta {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0 0 22px;
+}
+
+.mobile-blocker__text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #6b7280;
+  margin: 0;
+}
+
 @font-face {
   font-family: "CallunaLocal";
   src: url("/fonts/latex/Calluna/Calluna-Regular.otf") format("opentype");
