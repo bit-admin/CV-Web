@@ -16,10 +16,11 @@ import {
   Sparkles,
   Trash2,
   Type,
+  Upload,
   X
 } from "lucide-react";
 import { PdfPreview } from "./components/PdfPreview";
-import { createEmptyBlock, createSampleWorkspace, duplicateBlock, mapAICVToWorkspace } from "./lib/document";
+import { createEmptyBlock, createSampleWorkspace, duplicateBlock, exportWorkspaceAsAIJSON, mapAICVToWorkspace } from "./lib/document";
 import { renderLatex } from "./lib/latex";
 import { LatexEngineService } from "./lib/latexEngine";
 import { clearStoredDocument, loadStoredWorkspace, saveStoredWorkspace } from "./lib/storage";
@@ -435,9 +436,11 @@ function IconButton({
 }
 
 function AiWizardModal({
+  workspace,
   onApply,
   onClose
 }: {
+  workspace: CVWorkspace;
   onApply: (workspace: CVWorkspace) => void;
   onClose: () => void;
 }) {
@@ -445,6 +448,14 @@ function AiWizardModal({
   const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback((file: File) => {
+    if (file.name.endsWith(".json")) {
+      file.text().then((text) => setJsonInput(text));
+    }
+  }, []);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -455,6 +466,17 @@ function AiWizardModal({
       // Clipboard API may be unavailable; user can copy manually
     }
   }, []);
+
+  const handleExport = useCallback(() => {
+    const json = exportWorkspaceAsAIJSON(workspace);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "cv.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [workspace]);
 
   const handleApply = useCallback(() => {
     setError(null);
@@ -500,14 +522,24 @@ function AiWizardModal({
           </p>
           <pre className="wizard-prompt-block">{AI_PROMPT_TEMPLATE}</pre>
           <div className="wizard-actions">
-            <button
-              className={`wizard-copy-btn${copied ? " copied" : ""}`}
-              type="button"
-              onClick={handleCopy}
-            >
-              <Copy size={14} />
-              {copied ? "Copied!" : "Copy to Clipboard"}
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className={`wizard-copy-btn${copied ? " copied" : ""}`}
+                type="button"
+                onClick={handleCopy}
+              >
+                <Copy size={14} />
+                {copied ? "Copied!" : "Copy to Clipboard"}
+              </button>
+              <button
+                className="wizard-copy-btn"
+                type="button"
+                onClick={handleExport}
+              >
+                <Download size={14} />
+                Export Current CV
+              </button>
+            </div>
             <div className="wizard-actions-right">
               <button
                 className="primary-button"
@@ -522,14 +554,40 @@ function AiWizardModal({
       ) : (
         <>
           <p className="wizard-instructions">
-            Paste the JSON from the AI's code block below (just the JSON, no
-            backticks). This will replace your entire CV workspace.
+            Drop a JSON file below, or paste the JSON from the AI's code block
+            (just the JSON, no backticks). This will replace your entire CV
+            workspace.
           </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+              e.target.value = "";
+            }}
+          />
+          <div
+            className={`wizard-dropzone${dragging ? " wizard-dropzone--active" : ""}`}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              handleFile(e.dataTransfer.files[0]);
+            }}
+          >
+            <Upload size={14} />
+            <span>Drop .json file here or click to select</span>
+          </div>
           <textarea
             className="wizard-textarea"
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
-            placeholder="Paste the AI-generated JSON here..."
+            placeholder="...or paste the AI-generated JSON here"
             spellCheck={false}
           />
           {error && (
@@ -1328,6 +1386,7 @@ export function App() {
       title: "Generate CV with AI",
       content: (
         <AiWizardModal
+          workspace={workspace}
           onApply={(ws) => setWorkspace(ws)}
           onClose={closeModal}
         />

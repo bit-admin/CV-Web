@@ -631,3 +631,28 @@ export function mapAICVToWorkspace(input: unknown): CVWorkspace | string {
     languages: languageDocs
   };
 }
+
+function stripBlock(block: CVBlock): Record<string, unknown> {
+  const { id: _id, hidden: _hidden, ...rest } = block;
+  return rest;
+}
+
+export function exportWorkspaceAsAIJSON(workspace: CVWorkspace): string {
+  const languages: Record<string, unknown> = {};
+
+  for (const lang of workspace.languages) {
+    if (!lang.enabled) continue;
+
+    const { header, blocks } = lang.document;
+    languages[lang.code] = {
+      header: {
+        name: header.name,
+        suffix: header.suffix,
+        contacts: header.contacts.map((label) => ({ label }))
+      },
+      blocks: blocks.map(stripBlock)
+    };
+  }
+
+  return JSON.stringify({ languages }, null, 2);
+}
