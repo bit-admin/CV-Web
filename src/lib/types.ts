@@ -62,6 +62,8 @@ export type CVBlockBase = {
   type: CVBlockType;
   title: string;
   hidden?: boolean;
+  /** Force this section to start on a new page. */
+  pageBreakBefore?: boolean;
 };
 
 export type CredentialEntry = {

@@ -1,17 +1,45 @@
 import { useEffect, useRef, useState } from "react";
 import type { CompileState } from "../lib/types";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { analyzeLayout, type LayoutIssue, type PdfPageText } from "../lib/layoutAnalysis";
+import { extractPageText } from "../lib/pdfText";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PdfPreviewProps = {
   bytes: Uint8Array | null;
   compileState: CompileState;
+  showLayoutHints: boolean;
+  activeIssueId: string | null;
+  onLayoutIssues: (issues: LayoutIssue[]) => void;
+  onSelectIssue: (issue: LayoutIssue) => void;
 };
 
-export function PdfPreview({ bytes, compileState }: PdfPreviewProps) {
+function issueMarker(issue: LayoutIssue, onSelect: (issue: LayoutIssue) => void): HTMLElement | null {
+  if (!issue.rect || issue.rect.height <= 0) {
+    return null;
+  }
+  const marker = document.createElement("button");
+  marker.type = "button";
+  marker.className = `layout-marker layout-marker--${issue.kind}`;
+  marker.dataset.issueId = issue.id;
+  marker.title = `${issue.title}\n${issue.detail}`;
+  marker.setAttribute("aria-label", issue.title);
+  marker.style.left = `${issue.rect.x * 100}%`;
+  marker.style.top = `${issue.rect.y * 100}%`;
+  marker.style.width = `${issue.rect.width * 100}%`;
+  marker.style.height = `${issue.rect.height * 100}%`;
+  marker.addEventListener("click", () => onSelect(issue));
+  return marker;
+}
+
+export function PdfPreview({ bytes, compileState, showLayoutHints, activeIssueId, onLayoutIssues, onSelectIssue }: PdfPreviewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const onLayoutIssuesRef = useRef(onLayoutIssues);
+  const onSelectIssueRef = useRef(onSelectIssue);
+  onLayoutIssuesRef.current = onLayoutIssues;
+  onSelectIssueRef.current = onSelectIssue;
   const [pageCount, setPageCount] = useState(0);
   const isCompiling = compileState === "compiling" || compileState === "loading";
 
@@ -24,6 +52,7 @@ export function PdfPreview({ bytes, compileState }: PdfPreviewProps) {
 
     host.replaceChildren();
     setPageCount(0);
+    onLayoutIssuesRef.current([]);
 
     if (!bytes) {
       if (isCompiling) {
@@ -72,6 +101,8 @@ export function PdfPreview({ bytes, compileState }: PdfPreviewProps) {
       }
 
       setPageCount(pdf.numPages);
+      const pageTexts: PdfPageText[] = [];
+      const pageWrappers: HTMLElement[] = [];
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
@@ -92,10 +123,28 @@ export function PdfPreview({ bytes, compileState }: PdfPreviewProps) {
         canvas.height = Math.floor(viewport.height);
         canvas.className = "pdf-page";
         canvas.setAttribute("aria-label", `PDF page ${pageNumber}`);
-        target.appendChild(canvas);
+        const wrapper = document.createElement("div");
+        wrapper.className = "pdf-page-wrap";
+        wrapper.dataset.page = String(pageNumber);
+        wrapper.appendChild(canvas);
+        target.appendChild(wrapper);
+        pageWrappers.push(wrapper);
 
         await page.render({ canvas, canvasContext: context, viewport }).promise;
+        pageTexts.push(await extractPageText(page));
       }
+
+      if (cancelled) {
+        return;
+      }
+      const issues = analyzeLayout(pageTexts);
+      for (const issue of issues) {
+        const marker = issueMarker(issue, (selected) => onSelectIssueRef.current(selected));
+        if (marker) {
+          pageWrappers[issue.page - 1]?.appendChild(marker);
+        }
+      }
+      onLayoutIssuesRef.current(issues);
     }
 
     render().catch((error) => {
@@ -112,12 +161,31 @@ export function PdfPreview({ bytes, compileState }: PdfPreviewProps) {
     };
   }, [bytes, isCompiling]);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    host.querySelectorAll<HTMLElement>(".layout-marker").forEach((marker) => {
+      marker.classList.toggle("active", marker.dataset.issueId === activeIssueId);
+    });
+    if (activeIssueId) {
+      host.querySelector<HTMLElement>(`.layout-marker[data-issue-id="${CSS.escape(activeIssueId)}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+  }, [activeIssueId, pageCount]);
+
   return (
     <div className="preview-shell">
       <div className="preview-meta">
         <span>{bytes ? `${pageCount || "..."} page PDF` : isCompiling ? "Compiling..." : "No PDF yet"}</span>
       </div>
-      <div ref={hostRef} className={`pdf-host${isCompiling ? " pdf-host--compiling" : ""}`} />
+      <div
+        ref={hostRef}
+        className={`pdf-host${isCompiling ? " pdf-host--compiling" : ""}${showLayoutHints ? "" : " pdf-host--hide-hints"}`}
+      />
     </div>
   );
 }

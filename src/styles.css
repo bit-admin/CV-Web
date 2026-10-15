@@ -745,10 +745,18 @@ h1 {
   padding: 10px 16px 24px;
 }
 
+.pdf-page-wrap {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+}
+
 .pdf-page {
   display: block;
   max-width: 100%;
-  margin: 0 auto 10px;
+  height: auto;
+  margin: 0;
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
@@ -1207,4 +1215,189 @@ h1 {
   .modal-content {
     width: calc(100vw - 24px);
   }
+}
+
+/* Checkbox field */
+.check-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.check-field input {
+  margin-top: 2px;
+  accent-color: #111827;
+}
+
+.check-field input:disabled + span {
+  opacity: 0.5;
+}
+
+.check-field span {
+  display: grid;
+  gap: 2px;
+}
+
+.check-field strong {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.check-field small {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* ── Layout check ───────────────────────────────────────── */
+.layout-panel {
+  margin: 8px 16px 0;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 0.8rem;
+}
+
+.layout-panel--clean {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: #047857;
+}
+
+.layout-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 4px 4px;
+}
+
+.layout-panel-toggle,
+.layout-hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  padding: 4px 6px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.layout-hint-toggle {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.layout-panel-toggle:hover,
+.layout-hint-toggle:hover {
+  background: #f3f4f6;
+}
+
+.layout-count {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.layout-issue-list {
+  max-height: 168px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #f3f4f6;
+}
+
+.layout-issue {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  padding: 6px 10px;
+  text-align: left;
+  font: inherit;
+  color: #374151;
+  cursor: pointer;
+}
+
+.layout-issue:hover {
+  background: #f9fafb;
+}
+
+.layout-issue.active {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+}
+
+.layout-issue svg {
+  margin-top: 2px;
+  color: #d97706;
+}
+
+.layout-issue--short-line svg {
+  color: #2563eb;
+}
+
+.layout-issue span {
+  display: grid;
+  gap: 1px;
+}
+
+.layout-issue strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.layout-issue small {
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.layout-issue em {
+  font-style: normal;
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.layout-marker {
+  position: absolute;
+  padding: 0;
+  border: 1px dashed rgba(217, 119, 6, 0.7);
+  background: rgba(251, 191, 36, 0.12);
+  cursor: pointer;
+}
+
+.layout-marker--short-line {
+  border: 0;
+  border-bottom: 2px solid rgba(37, 99, 235, 0.75);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.layout-marker:hover,
+.layout-marker.active {
+  background: rgba(251, 191, 36, 0.28);
+  outline: 2px solid rgba(217, 119, 6, 0.6);
+}
+
+.layout-marker--short-line:hover,
+.layout-marker--short-line.active {
+  background: rgba(59, 130, 246, 0.25);
+  outline-color: rgba(37, 99, 235, 0.6);
+}
+
+.pdf-host--hide-hints .layout-marker {
+  display: none;
 }
