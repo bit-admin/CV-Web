@@ -78,6 +78,18 @@ describe("layout analysis", () => {
     expect(issues.find((issue) => issue.kind === "short-line")?.title).toBe("Date “2025.03” wrapped onto its own line");
   });
 
+  it("does not call a year ending a sentence a wrapped date", () => {
+    const issues = analyzeLayout([
+      page([
+        ...filledLines(40, 300),
+        line(400, "Mei Lin, Haruka Kobayashi, Anthony Lau. A Sparse Grid Approach to Multi-Asset", BODY_LEFT + 10, BODY_RIGHT),
+        line(412, "2024.", BODY_LEFT + 10)
+      ])
+    ]);
+
+    expect(issues.find((issue) => issue.kind === "short-line")?.title).toBe("Only “2024.” on the last line");
+  });
+
   it("does not flag short lines that start a new paragraph", () => {
     const issues = analyzeLayout([
       page([

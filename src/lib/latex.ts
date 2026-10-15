@@ -140,8 +140,22 @@ function sectionBlock(title: string, content: string, pageBreakBefore = false): 
 // section that does not fit continues on the next page at an entry boundary.
 const ENTRY_SEPARATOR = "\n\n\\cvEntryBreak\n";
 
-function entryBlock(content: string): string {
-  return `\\begin{cvEntry}\n${content}\n\\end{cvEntry}`;
+// Rough line count above which an entry may not fit on one page; such an
+// entry is allowed to break between its bullets instead of overflowing.
+const LONG_ENTRY_LINES = 45;
+const CHARS_PER_LINE = 90;
+
+function estimatedLines(texts: string[]): number {
+  return texts.reduce((total, text) => {
+    // CJK characters are about twice as wide as Latin ones.
+    const width = [...text].reduce((sum, char) => sum + (char.charCodeAt(0) > 0x2e7f ? 2 : 1), 0);
+    return total + Math.max(1, Math.ceil(width / CHARS_PER_LINE));
+  }, 0);
+}
+
+function entryBlock(content: string, headingLines: number, bullets: string[]): string {
+  const environment = headingLines + estimatedLines(cleanItems(bullets)) > LONG_ENTRY_LINES ? "cvLongEntry" : "cvEntry";
+  return `\\begin{${environment}}\n${content}\n\\end{${environment}}`;
 }
 
 // The first two items stay with the section title and the last item is never
@@ -158,7 +172,7 @@ function renderCredentialEntry(entry: CredentialEntry): string {
     `  {${inlineLatex(entry.title)}}{${inlineLatex(entry.location)}}`,
     `  {${inlineLatex(entry.subtitle)}}{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n"));
+  ].join("\n"), 2, entry.bullets);
 }
 
 function renderRoleEntry(entry: RoleEntry): string {
@@ -166,7 +180,7 @@ function renderRoleEntry(entry: RoleEntry): string {
     "\\internHeading",
     `  {${inlineLatex(entry.title)}}{${inlineLatex(entry.location)}}{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n"));
+  ].join("\n"), 1, entry.bullets);
 }
 
 function renderProjectEntry(entry: ProjectBlockEntry): string {
@@ -176,7 +190,7 @@ function renderProjectEntry(entry: ProjectBlockEntry): string {
     `{${inlineLatex(entry.organization)}}`,
     `{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n"));
+  ].join("\n"), 2, entry.bullets);
 }
 
 function renderNumberedList(items: string[]): string {
@@ -184,6 +198,7 @@ function renderNumberedList(items: string[]): string {
   return [
     "\\pubListStart",
     "\\justifying",
+    "\\cvKeepItems",
     breakableItems(visibleItems.map((item) => `\\item ${inlineLatex(item)}`)),
     "\\pubListEnd"
   ].filter(Boolean).join("\n");
@@ -214,6 +229,7 @@ function renderDatedList(items: DatedListItem[], language: CVLanguageCode): stri
   return [
     "\\awardListStart",
     "\\justifying",
+    "\\cvKeepItems",
     breakableItems(
       visibleItems.map((item) => {
         const { title, detail } = splitDatedText(item.text, language);
@@ -229,6 +245,7 @@ function renderLabelValueList(items: LabelValueItem[], language: CVLanguageCode)
   return [
     "\\skillListStart",
     "\\justifying",
+    "\\cvKeepItems",
     breakableItems(
       visibleItems.map((item) => {
         const codeItems = cleanItems(item.codeItems ?? []);
@@ -248,6 +265,7 @@ function renderFreeText(text: string): string {
   return [
     "\\skillListStart",
     "\\justifying",
+    "\\cvKeepItems",
     `\\item ${inlineLatex(text)}`,
     "\\skillListEnd"
   ].join("\n");
@@ -519,33 +537,80 @@ function renderFixedStylePreamble(): string {
 \setlength{\SectionSkip}{25pt}
 
 \makeatletter
-% Preferred page break between entries: if the next entry does not fit on
-% the current page it moves to the next page as a whole; an entry taller
-% than a full page still breaks between its bullets.
-\newcommand{\cvEntryBreak}{\par\vfil\penalty-200\vfilneg}
+% Page breaks are only allowed between entries (and between list items):
+% an entry that does not fit moves to the next page as a whole, and TeX
+% fills each page as far as possible, as it did with whole sections in the
+% original template. \addpenalty puts the break before any space ending the
+% previous entry, so that space is dropped at a page break.
+\newcommand{\cvEntryBreak}{\par\addpenalty{-\@lowpenalty}}
 \newcommand{\cvNoBreakVspace}[1]{%
   \ifvmode\nobreak\vskip#1\relax\else\vadjust{\nobreak\vskip#1\vskip\z@skip}\fi}
 
-% Keeps an entry heading attached to its first bullet and avoids single
-% lines left behind when a long entry has to split.
-\newenvironment{cvEntry}{%
+% Entry headings are 6pt wider than the column on the right (as in the
+% original template) so their dates line up with the header rule; the box
+% hides the intentional overhang from TeX's overfull-box warnings.
+\newcommand{\cvHeadingBox}[1]{\makebox[\linewidth][l]{#1}}
+
+% An entry never breaks across pages.
+\newcommand{\cvNoBreaks}{%
+  \interlinepenalty\@M
+  \clubpenalty\@M
+  \widowpenalty\@M
+  \brokenpenalty\@M
+  \@beginparpenalty\@M
+  \@itempenalty\@M
+  \@endparpenalty\@M}
+\newenvironment{cvEntry}{\par\cvNoBreaks}{\par}
+
+% An entry too long for one page may break between its bullets, but never
+% between its heading and first bullet or leaving a single line behind.
+\newenvironment{cvLongEntry}{%
   \par
   \@beginparpenalty\@M
   \clubpenalty\@M
   \widowpenalty\@M
 }{\par}
 
+% List spacing without its shrink component (otherwise identical to the
+% article class), so TeX never squeezes a page to fit one more entry and
+% the spacing is the same on every page.
+\def\@listI{\leftmargin\leftmargini
+  \parsep 4\p@ \@plus2\p@
+  \topsep 8\p@ \@plus2\p@
+  \itemsep4\p@ \@plus2\p@}
+\let\@listi\@listI
+\setlength{\partopsep}{2\p@ \@plus 1\p@}
+
+% List defaults, restored inside section bodies so nested lists are laid
+% out exactly as they were inside the original minipage.
+\newlength{\cvDefaultLabelsep}
+\setlength{\cvDefaultLabelsep}{\labelsep}
+\newlength{\cvDefaultLabelwidth}
+\setlength{\cvDefaultLabelwidth}{\labelwidth}
+\newskip\cvDefaultPartopsep
+\cvDefaultPartopsep\partopsep
+\newskip\cvDefaultTopsep
+\begingroup\@listi\global\cvDefaultTopsep\topsep\endgroup
+% A list that opens a section shares the line with the section title, and
+% LaTeX then omits the space after the list. Inside the original minipage
+% that space was kept; add it back so the gap to the next section matches.
+\newcommand{\cvSectionListEnd}{%
+  \addpenalty\@endparpenalty
+  \addvspace{\glueexpr\cvDefaultTopsep+\cvDefaultPartopsep\relax}%
+  \vspace{-11pt}}
+
 \newsavebox{\cvLabelBox}
 \newdimen\cvSectionStart
 \newcount\cvSectionPage
 \newenvironment{cvSection}[1]{%
-  \cvEntryBreak
   \sbox{\cvLabelBox}{\begin{minipage}[t]{\SectionLabelWidth}\raggedright #1\end{minipage}}%
   \begin{list}{}{%
-    \setlength{\leftmargin}{\dimexpr\textwidth-\SectionBodyWidth\relax}%
+    % The original two-minipage line left one interword space on each side
+    % of the body column; keep that geometry so line breaks are unchanged.
+    \setlength{\rightmargin}{\fontdimen2\font}%
+    \setlength{\leftmargin}{\dimexpr\textwidth-\SectionBodyWidth-\rightmargin\relax}%
     \setlength{\labelwidth}{\SectionLabelWidth}%
     \setlength{\labelsep}{\dimexpr\leftmargin-\SectionLabelWidth\relax}%
-    \setlength{\rightmargin}{\z@}%
     \setlength{\itemindent}{\z@}%
     \setlength{\listparindent}{\z@}%
     \setlength{\topsep}{\z@}%
@@ -553,25 +618,38 @@ function renderFixedStylePreamble(): string {
     \setlength{\parsep}{\z@}%
     \setlength{\itemsep}{\z@}%
     \renewcommand{\makelabel}[1]{##1\hfil}}%
-  % Nested lists behave as top-level lists, as they did inside a minipage.
+  % Nested lists behave as top-level lists, and lines are broken \sloppy,
+  % as they were inside the original minipage.
   \@listdepth\z@
+  \sloppy
   \raggedright
+  \item[{\raisebox{\z@}[\ht\cvLabelBox][\z@]{\usebox{\cvLabelBox}}}]%
+  \labelsep\cvDefaultLabelsep
+  \labelwidth\cvDefaultLabelwidth
+  \partopsep\cvDefaultPartopsep
   \cvSectionPage\c@page
   \cvSectionStart\dimexpr\pagetotal+\pagedepth\relax
-  \item[{\raisebox{\z@}[\z@][\z@]{\usebox{\cvLabelBox}}}]%
 }{%
   \par
+  % Drop the space after the last list, as the end of a minipage did.
+  \vskip-\lastskip\vskip\z@skip
   % Reserve room for a section title that is taller than its body.
   \ifnum\cvSectionPage=\c@page
     \@tempdima\dimexpr\ht\cvLabelBox+\dp\cvLabelBox-\pagetotal-\pagedepth+\cvSectionStart\relax
     \ifdim\@tempdima>\z@\nobreak\vskip\@tempdima\fi
   \fi
   \end{list}%
+  \cvEntryBreak
   \vspace{\SectionSkip}%
 }
 
-% Inside a list: only break pages at \cvEntryBreak, never between items.
-\newcommand{\cvKeepItems}{\@itempenalty\@M}
+% Inside a list section: pages only break at \cvEntryBreak, never inside
+% or between other items.
+\newcommand{\cvKeepItems}{%
+  \@itempenalty\@M
+  \interlinepenalty\@M
+  \clubpenalty\@M
+  \widowpenalty\@M}
 
 % Explicit page break requested for a section ("Start on new page").
 \newcommand{\cvSectionPageBreak}{\par\newpage}
@@ -616,36 +694,36 @@ function renderFixedStylePreamble(): string {
 }
 
 \newcommand{\pubListStart}{\begin{enumerate}[left=0pt, itemsep=3pt]}
-\newcommand{\pubListEnd}{\end{enumerate}\vspace{-11pt}}
+\newcommand{\pubListEnd}{\end{enumerate}\cvSectionListEnd}
 \newcommand{\awardListStart}{\begin{itemize}[left=0pt, itemsep=0pt]}
-\newcommand{\awardListEnd}{\end{itemize}\vspace{-11pt}}
+\newcommand{\awardListEnd}{\end{itemize}\cvSectionListEnd}
 \newcommand{\skillListStart}{\begin{itemize}[leftmargin=0pt, label={}, itemsep=0pt]}
-\newcommand{\skillListEnd}{\end{itemize}\vspace{-11pt}}
+\newcommand{\skillListEnd}{\end{itemize}\cvSectionListEnd}
 \newcommand{\itemListStart}{\begin{itemize}[itemsep=0pt]}
 \newcommand{\itemListEnd}{\end{itemize}}
 \newcommand{\myItem}[1]{\item{{#1\cvNoBreakVspace{-2pt}}}}
 
 \newcommand{\eduHeading}[4]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{@{}p{\linewidth}@{}}
+  \cvHeadingBox{\begin{tabular}[t]{p{13.74cm}}
     \emph{#1} \hfill #2 \\
     \textit{#3} \hfill #4 \\
-  \end{tabular}\cvNoBreakVspace{-7pt}
+  \end{tabular}}\cvNoBreakVspace{-7pt}
 }
 
 \newcommand{\internHeading}[3]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{@{}p{\linewidth}@{}}
+  \cvHeadingBox{\begin{tabular}[t]{p{13.74cm}}
     \emph{#1} $|$ #2 \hfill #3 \\
-  \end{tabular}\cvNoBreakVspace{-7pt}
+  \end{tabular}}\cvNoBreakVspace{-7pt}
 }
 
 \newcommand{\projHeading}[3]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{@{}p{\linewidth}@{}}
+  \cvHeadingBox{\begin{tabular}[t]{p{13.74cm}}
     \textbf{#1} \hfill \\
     \textit{#2} \hfill #3 \\
-  \end{tabular}\cvNoBreakVspace{2pt}
+  \end{tabular}}\cvNoBreakVspace{2pt}
 }`;
 }
 
@@ -664,24 +742,17 @@ function nameFontForLanguage(language: CVLanguageCode): string {
 function renderHeader(document: CVDocument, language: CVLanguageCode): string {
   const contacts = document.header.contacts
     .filter(hasText)
-    .map((contact) => `{\\ContactFont ${inlineLatex(contact)}}\\cr`)
-    .join("\\noalign{\\vskip4pt}\n    ");
-  // Contacts are right-aligned rows in a \vbox, whose baseline is the last
-  // row, so the name lines up with the last contact for any number of
-  // contacts. Row spacing (stretch 0.6 + 4pt) matches the previous
-  // flushright list. If name and contacts do not fit side by side, the
-  // contacts wrap below the name, still flush right. The 12.8pt kern keeps
-  // the name and everything below where the original template put them (its
-  // contact list started with an empty line).
-  const contactBlock = contacts
-    ? `\\nobreak\\hskip 0pt plus 1filll\\penalty50\\hskip1em\\null\\nobreak\\hskip 0pt plus 1filll
-  {\\setstretch{0.6}\\vbox{\\kern12.8pt\\halign{\\hfil#\\cr
-    ${contacts}}}}`
-    : "";
+    .map((contact) => `  \\item {\\ContactFont ${inlineLatex(contact)}}`)
+    .join("\n");
 
-  return String.raw`\begin{flushleft}
-  \mbox{{${nameFontForLanguage(language)} ${inlineLatex(document.header.name)}} \quad
-  {\SuffixFont ${inlineLatex(document.header.suffix)}}}${contactBlock}{\parfillskip=0pt\par}
+  return String.raw`\begin{flushright}
+  \setstretch{0.6}
+${contacts}
+\end{flushright}\vspace{-45pt}
+
+\begin{flushleft}
+  {${nameFontForLanguage(language)} ${inlineLatex(document.header.name)}} \quad
+  {\SuffixFont ${inlineLatex(document.header.suffix)}}
   \noindent\rule{\textwidth}{0.4pt}
 \end{flushleft}`;
 }

@@ -268,7 +268,29 @@ describe("LaTeX renderer", () => {
     expect(tex).toContain("\\end{cvSection}");
     expect(tex.match(/\\begin\{cvEntry\}/g)).toHaveLength(2);
     expect(tex).toMatch(/\\end\{cvEntry\}\n\n\\cvEntryBreak\n\\begin\{cvEntry\}/);
-    expect(tex).not.toContain("p{13.74cm}");
+    expect(tex).toContain("\\cvHeadingBox{\\begin{tabular}[t]{p{13.74cm}}");
+  });
+
+  it("lets only entries too long for one page break between their bullets", () => {
+    const longBullets = Array.from({ length: 30 }, (_, i) => `Bullet ${i} `.repeat(14));
+    const tex = renderLatex(
+      workspaceWithDocument(
+        documentWithBlocks([
+          {
+            id: "role",
+            type: "role",
+            title: "Roles",
+            entries: [
+              { title: "Short", location: "", period: "", bullets: ["One line"] },
+              { title: "Long", location: "", period: "", bullets: longBullets }
+            ]
+          }
+        ])
+      )
+    );
+
+    expect(tex.match(/\\begin\{cvEntry\}/g)).toHaveLength(1);
+    expect(tex.match(/\\begin\{cvLongEntry\}/g)).toHaveLength(1);
   });
 
   it("keeps the first two and the last list items together when breaking lists", () => {
@@ -307,12 +329,5 @@ describe("LaTeX renderer", () => {
 
     expect(document?.blocks[0]?.pageBreakBefore).toBe(true);
     expect(document?.blocks[1]).not.toHaveProperty("pageBreakBefore");
-  });
-
-  it("bottom-aligns contacts with the name instead of a fixed negative offset", () => {
-    const tex = renderLatex(createSampleWorkspace());
-
-    expect(tex).not.toContain("\\vspace{-45pt}");
-    expect(tex).toContain("\\vbox{\\kern12.8pt\\halign{\\hfil#\\cr");
   });
 });

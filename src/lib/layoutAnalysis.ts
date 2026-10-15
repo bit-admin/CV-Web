@@ -54,7 +54,9 @@ const FULL_LINE_RATIO = 0.85;
 const SHORT_LINE_RATIO = 0.18;
 const SHORT_LINE_MAX_CHARS = 14;
 const HEADER_FONT_SIZE = 20;
-const DATE_ONLY = /^[\d\s./–—-]+$|^(present|至今|现在|現在)$/i;
+// A date-column value such as "2025.03", "2019 - 2023" or "2023.09 - Present"
+// (but not a year ending a sentence, like "2024.").
+const DATE_ONLY = /^\d{4}([./]\d{1,2})?(\s*[-–—~～]\s*(\d{4}([./]\d{1,2})?|present|至今|现在|現在))?$/i;
 
 function geometry(page: PdfPageText) {
   const top = PAGE_LAYOUT.topCm * PT_PER_CM;
@@ -111,7 +113,7 @@ export function analyzeLayout(pages: PdfPageText[]): LayoutIssue[] {
     const textHeight = bottom - top;
     // Everything inside the text area (page numbers sit below it).
     const allLines = linesOf(page, 0, bottom);
-    const bodyLines = linesOf(page, bodyLeft - 2, bottom);
+    const bodyLines = linesOf(page, bodyLeft - 8, bottom);
     if (allLines.length === 0) {
       return;
     }
@@ -130,7 +132,7 @@ export function analyzeLayout(pages: PdfPageText[]): LayoutIssue[] {
     };
 
     if (!endsDocument && fill < PAGE_GAP_MIN_FILL) {
-      const nextLines = linesOf(next, geometry(next).bodyLeft - 2, geometry(next).bottom);
+      const nextLines = linesOf(next, geometry(next).bodyLeft - 8, geometry(next).bottom);
       const nextEntry = nextLines[0]?.text ?? "";
       const free = linesToSave(bottom - usedBottom, lineHeight);
       issues.push({
