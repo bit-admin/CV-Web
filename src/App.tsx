@@ -7,6 +7,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  FilePlus2,
   FileText,
   Github,
   Library,
@@ -447,13 +448,17 @@ function IconButton({
   );
 }
 
+type ApplyMode = "replace" | "new";
+
 function AiWizardModal({
   workspace,
+  cvName,
   onApply,
   onClose
 }: {
   workspace: CVWorkspace;
-  onApply: (workspace: CVWorkspace) => void;
+  cvName: string;
+  onApply: (workspace: CVWorkspace, mode: ApplyMode) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
@@ -490,7 +495,7 @@ function AiWizardModal({
     URL.revokeObjectURL(url);
   }, [workspace]);
 
-  const handleApply = useCallback(() => {
+  const handleApply = useCallback((mode: ApplyMode) => {
     setError(null);
     const trimmed = jsonInput.trim();
     if (!trimmed) {
@@ -512,7 +517,7 @@ function AiWizardModal({
       return;
     }
 
-    onApply(result);
+    onApply(result, mode);
     onClose();
   }, [jsonInput, onApply, onClose]);
 
@@ -568,8 +573,9 @@ function AiWizardModal({
         <>
           <p className="wizard-instructions">
             Drop a JSON file below, or paste the JSON from the AI's code block
-            (just the JSON, no backticks). This will replace your entire CV
-            workspace.
+            (just the JSON, no backticks). Then create a new CV from it, or
+            replace the open CV (its current content is kept as a version in
+            “My CVs”).
           </p>
           <input
             ref={fileInputRef}
@@ -618,12 +624,23 @@ function AiWizardModal({
             </button>
             <div className="wizard-actions-right">
               <button
+                className="secondary-button"
+                type="button"
+                disabled={!jsonInput.trim()}
+                title="Add the result to “My CVs” as a new CV and open it"
+                onClick={() => handleApply("new")}
+              >
+                <FilePlus2 size={14} />
+                Create as new CV
+              </button>
+              <button
                 className="primary-button"
                 type="button"
                 disabled={!jsonInput.trim()}
-                onClick={handleApply}
+                title={`Replace the content of “${cvName}” (its current state is kept as a version)`}
+                onClick={() => handleApply("replace")}
               >
-                Apply
+                Replace<span className="button-name">“{cvName}”</span>
               </button>
             </div>
           </div>
@@ -1449,7 +1466,13 @@ export function App() {
       content: (
         <AiWizardModal
           workspace={workspace}
-          onApply={(ws) => {
+          cvName={library.active.name}
+          onApply={(ws, mode) => {
+            if (mode === "new") {
+              const enabled = ws.languages.find((language) => language.enabled && language.document.header.name.trim());
+              library.createCV(enabled ? `${enabled.document.header.name.trim()} (AI)` : "AI-generated CV", ws);
+              return;
+            }
             void saveVersion("Before AI import", "auto");
             setWorkspace(ws);
           }}
