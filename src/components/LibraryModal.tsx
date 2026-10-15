@@ -18,6 +18,7 @@ import {
 import { createSampleWorkspace } from "../lib/document";
 import { contentKey, createEmptyWorkspace, describeChanges, loadWorkingCopy, type CVVersion } from "../lib/library";
 import type { CVLibrary } from "../lib/useLibrary";
+import { Kbd, MOD } from "./ui";
 import type { CVWorkspace } from "../lib/types";
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
@@ -282,7 +283,7 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
           <p className="library-hint">
             Automatic versions are saved before your first edit of a visit, every 10 minutes while you edit, and before
             imports, resets and restores. The latest 20 are kept; named versions are never removed. Press{" "}
-            <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> to save a version at any time.
+            <Kbd>{`${MOD}S`}</Kbd> to save a version at any time.
           </p>
         </section>
       </div>

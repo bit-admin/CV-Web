@@ -107,18 +107,29 @@ code {
 }
 
 .kbd {
-  display: inline-block;
-  min-width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 20px;
+  height: 18px;
   border: 1px solid var(--line-2);
   border-bottom-width: 2px;
-  padding: 0 4px;
+  padding: 0 5px;
   color: var(--text-2);
   background: var(--bg);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  line-height: 16px;
-  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.kbd-symbol {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
 }
 
 /* ── App frame ──────────────────────────────────────────── */
@@ -149,12 +160,20 @@ code {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   margin-right: 6px;
   color: var(--ink);
   font-family: var(--font-serif);
   font-size: 19px;
   line-height: 1;
   white-space: nowrap;
+}
+
+.brand-mark {
+  flex-shrink: 0;
+  color: var(--ink);
 }
 
 .topbar-divider {
@@ -2551,13 +2570,6 @@ input:focus-visible + .toggle-track {
   font-size: 12px;
 }
 
-.library-hint kbd {
-  border: 1px solid var(--line-2);
-  padding: 0 4px;
-  background: var(--bg-2);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-}
 
 .library-footer {
   display: flex;

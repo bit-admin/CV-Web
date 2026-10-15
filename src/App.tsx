@@ -27,7 +27,7 @@ import { LayoutDock } from "./components/LayoutPanel";
 import { LibraryModal } from "./components/LibraryModal";
 import { PdfPreview, scrollPreviewToPage, type PageInfo, type PreviewFocus, type Zoom } from "./components/PdfPreview";
 import { Sidebar } from "./components/Sidebar";
-import { IconButton, Kbd, MenuButton, MOD } from "./components/ui";
+import { BrandMark, IconButton, Kbd, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
 import { renderLatex } from "./lib/latex";
@@ -581,7 +581,10 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-group">
-          <span className="brand">CV Forge</span>
+          <span className="brand">
+            <BrandMark />
+            CV Forge
+          </span>
           <span className="topbar-divider" />
           <button
             className="cv-switcher"

@@ -228,6 +228,39 @@ export function MenuButton({
   );
 }
 
+const KEY_SYMBOLS = /([⌘⇧⌥⌃↑↓←→↵])/;
+
+/**
+ * A key or shortcut, e.g. `{MOD}Shift+Z`. On a Mac, Shift and Alt become ⇧
+ * and ⌥ (⌘⇧Z, ⌥↑), as in native menus. Symbols get a slightly larger size,
+ * since most fonts draw them small.
+ */
 export function Kbd({ children }: { children: ReactNode }) {
-  return <kbd className="kbd">{children}</kbd>;
+  const text = (Array.isArray(children) ? children : [children]).join("");
+  const label = isMac ? text.replace(/Shift\+/g, "⇧").replace(/Alt\+/g, "⌥") : text;
+  return (
+    <kbd className="kbd">
+      {label.split(KEY_SYMBOLS).map((part, index) =>
+        KEY_SYMBOLS.test(part) ? (
+          <span key={index} className="kbd-symbol">
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </kbd>
+  );
+}
+
+/** The “CV” mark (same drawing as public/favicon.svg). */
+export function BrandMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg className="brand-mark" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" fill="currentColor" />
+      <path d="M30.06 23.64A9.5 9.5 0 1 0 30.06 36.36" fill="none" stroke="#fff" strokeWidth="5" />
+      <path d="M36 18h5.8L46 31.8 50.2 18H56l-7.3 24h-5.4z" fill="#fff" />
+      <path d="M8.5 49.5h47.5" stroke="#fff" strokeWidth="2" />
+    </svg>
+  );
 }
