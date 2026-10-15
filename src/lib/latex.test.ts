@@ -254,4 +254,65 @@ describe("LaTeX renderer", () => {
     expect(tex).toContain("合成指値注文板環境");
     expect(tex).toContain("18\\% 削減");
   });
+
+  it("lays sections out as breakable lists that page-break between entries", () => {
+    const entry = { title: "Company", location: "Remote", period: "2021", bullets: ["Built systems"] };
+    const tex = renderLatex(
+      workspaceWithDocument(
+        documentWithBlocks([{ id: "role", type: "role", title: "Roles", entries: [entry, { ...entry, title: "Second" }] }])
+      )
+    );
+
+    expect(tex).not.toContain("\\sectionBlock");
+    expect(tex).toContain("\\begin{cvSection}{\\section{Roles}}");
+    expect(tex).toContain("\\end{cvSection}");
+    expect(tex.match(/\\begin\{cvEntry\}/g)).toHaveLength(2);
+    expect(tex).toMatch(/\\end\{cvEntry\}\n\n\\cvEntryBreak\n\\begin\{cvEntry\}/);
+    expect(tex).not.toContain("p{13.74cm}");
+  });
+
+  it("keeps the first two and the last list items together when breaking lists", () => {
+    const tex = renderLatex(
+      workspaceWithDocument(
+        documentWithBlocks([{ id: "papers", type: "numbered-list", title: "Papers", items: ["A", "B", "C", "D", "E"] }])
+      )
+    );
+
+    expect(tex).toContain("\\item A\n\n\\item B\n\n\\cvEntryBreak\n\\item C\n\n\\cvEntryBreak\n\\item D\n\n\\item E");
+  });
+
+  it("forces a page break before sections marked to start on a new page", () => {
+    const tex = renderLatex(
+      workspaceWithDocument(
+        documentWithBlocks([
+          { id: "first", type: "free-text", title: "First", text: "One", pageBreakBefore: true },
+          { id: "second", type: "free-text", title: "Second", text: "Two", pageBreakBefore: true }
+        ])
+      )
+    );
+
+    expect(tex.match(/\\cvSectionPageBreak\n/g)).toHaveLength(1);
+    expect(tex).toContain("\\cvSectionPageBreak\n\\begin{cvSection}{\\section{Second}}");
+  });
+
+  it("keeps the page break option when normalizing stored documents", () => {
+    const document = normalizeDocument({
+      version: 2,
+      header: {},
+      blocks: [
+        { id: "a", type: "free-text", title: "A", text: "x", pageBreakBefore: true },
+        { id: "b", type: "free-text", title: "B", text: "y" }
+      ]
+    });
+
+    expect(document?.blocks[0]?.pageBreakBefore).toBe(true);
+    expect(document?.blocks[1]).not.toHaveProperty("pageBreakBefore");
+  });
+
+  it("bottom-aligns contacts with the name instead of a fixed negative offset", () => {
+    const tex = renderLatex(createSampleWorkspace());
+
+    expect(tex).not.toContain("\\vspace{-45pt}");
+    expect(tex).toContain("\\begin{tabular}[b]{@{}r@{}}");
+  });
 });

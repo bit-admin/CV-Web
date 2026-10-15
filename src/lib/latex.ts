@@ -14,6 +14,18 @@ import type {
 
 const LANGUAGE_RENDER_ORDER: CVLanguageCode[] = ["en", "zh", "ja"];
 
+/** Page geometry of the template, shared with the PDF layout analysis. */
+export const PAGE_LAYOUT = {
+  pageWidthCm: 21,
+  pageHeightCm: 29.7,
+  topCm: 1.2,
+  bottomCm: 2.6,
+  leftCm: 1.8,
+  rightCm: 2.3,
+  sectionLabelCm: 2.7,
+  sectionBodyCm: 13.85
+} as const;
+
 const LATEX_SPECIALS: Record<string, string> = {
   "\\": "\\textbackslash{}",
   "{": "\\{",
@@ -119,35 +131,52 @@ function itemList(items: string[]): string {
   ].join("\n");
 }
 
-function sectionBlock(title: string, content: string): string {
-  return `\\sectionBlock{\n\\section{${sectionTitle(title)}}\n}{\n${content}\n}`;
+function sectionBlock(title: string, content: string, pageBreakBefore = false): string {
+  const section = `\\begin{cvSection}{\\section{${sectionTitle(title)}}}\n${content}\n\\end{cvSection}`;
+  return pageBreakBefore ? `\\cvSectionPageBreak\n${section}` : section;
+}
+
+// Entries (and list items) are separated by a preferred page break, so a
+// section that does not fit continues on the next page at an entry boundary.
+const ENTRY_SEPARATOR = "\n\n\\cvEntryBreak\n";
+
+function entryBlock(content: string): string {
+  return `\\begin{cvEntry}\n${content}\n\\end{cvEntry}`;
+}
+
+// The first two items stay with the section title and the last item is never
+// left alone at the top of a new page.
+function breakableItems(items: string[], separator = "\n\n"): string {
+  return items
+    .map((item, index) => (index < 2 || index === items.length - 1 ? item : `\\cvEntryBreak\n${item}`))
+    .join(separator);
 }
 
 function renderCredentialEntry(entry: CredentialEntry): string {
-  return [
+  return entryBlock([
     "\\eduHeading",
     `  {${inlineLatex(entry.title)}}{${inlineLatex(entry.location)}}`,
     `  {${inlineLatex(entry.subtitle)}}{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n");
+  ].join("\n"));
 }
 
 function renderRoleEntry(entry: RoleEntry): string {
-  return [
+  return entryBlock([
     "\\internHeading",
     `  {${inlineLatex(entry.title)}}{${inlineLatex(entry.location)}}{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n");
+  ].join("\n"));
 }
 
 function renderProjectEntry(entry: ProjectBlockEntry): string {
-  return [
+  return entryBlock([
     "\\projHeading",
     `{${inlineLatex(entry.title)}}`,
     `{${inlineLatex(entry.organization)}}`,
     `{${inlineLatex(entry.period)}}`,
     itemList(entry.bullets)
-  ].join("\n");
+  ].join("\n"));
 }
 
 function renderNumberedList(items: string[]): string {
@@ -155,7 +184,7 @@ function renderNumberedList(items: string[]): string {
   return [
     "\\pubListStart",
     "\\justifying",
-    visibleItems.map((item) => `\\item ${inlineLatex(item)}`).join("\n\n"),
+    breakableItems(visibleItems.map((item) => `\\item ${inlineLatex(item)}`)),
     "\\pubListEnd"
   ].filter(Boolean).join("\n");
 }
@@ -185,12 +214,12 @@ function renderDatedList(items: DatedListItem[], language: CVLanguageCode): stri
   return [
     "\\awardListStart",
     "\\justifying",
-    visibleItems
-      .map((item) => {
+    breakableItems(
+      visibleItems.map((item) => {
         const { title, detail } = splitDatedText(item.text, language);
         return `\\item \\emph{${inlineLatex(title)}}${inlineLatex(detail)} \\hfill ${inlineLatex(item.date)}`;
       })
-      .join("\n\n"),
+    ),
     "\\awardListEnd"
   ].filter(Boolean).join("\n");
 }
@@ -200,8 +229,8 @@ function renderLabelValueList(items: LabelValueItem[], language: CVLanguageCode)
   return [
     "\\skillListStart",
     "\\justifying",
-    visibleItems
-      .map((item) => {
+    breakableItems(
+      visibleItems.map((item) => {
         const codeItems = cleanItems(item.codeItems ?? []);
         const value = codeItems.length
           ? codeItems.map((code) => `{\\MonoSmallFont ${escapeLatex(code)}}`).join(", ")
@@ -210,7 +239,7 @@ function renderLabelValueList(items: LabelValueItem[], language: CVLanguageCode)
 
         return `\\item \\emph{${inlineLatex(item.label)}}: ${value}${terminalPunctuation(rawValue, language)}`;
       })
-      .join("\n\n"),
+    ),
     "\\skillListEnd"
   ].filter(Boolean).join("\n");
 }
@@ -225,7 +254,7 @@ function renderFreeText(text: string): string {
 }
 
 function renderGroupedList(groups: GroupedListItem[], language: CVLanguageCode): string {
-  const lines: string[] = [];
+  const groupLines: string[] = [];
 
   for (const group of groups) {
     const hasLabel = hasText(group.label);
@@ -235,6 +264,7 @@ function renderGroupedList(groups: GroupedListItem[], language: CVLanguageCode):
       continue;
     }
 
+    const lines: string[] = [];
     if (hasLabel) {
       const label = inlineLatex(group.label);
       for (let i = 0; i < items.length; i++) {
@@ -250,9 +280,12 @@ function renderGroupedList(groups: GroupedListItem[], language: CVLanguageCode):
         lines.push(`\\item ${inlineLatex(item)}`);
       }
     }
+    // Lines of a labelled group stay together; unlabelled items may break.
+    groupLines.push(hasLabel ? lines.join("\n") : breakableItems(lines, "\n"));
   }
 
-  return ["\\skillListStart", "\\justifying", lines.join("\n"), "\\skillListEnd"].filter(Boolean).join("\n");
+  // Lines of a labelled group stay together; pages only break between groups.
+  return ["\\skillListStart", "\\justifying", "\\cvKeepItems", breakableItems(groupLines, "\n"), "\\skillListEnd"].join("\n");
 }
 
 function credentialEntryHasContent(entry: CredentialEntry): boolean {
@@ -291,11 +324,11 @@ function blockHasContent(block: CVBlock): boolean {
 function renderBlockContent(block: CVBlock, language: CVLanguageCode): string {
   switch (block.type) {
     case "credential":
-      return block.entries.filter(credentialEntryHasContent).map(renderCredentialEntry).join("\n\n");
+      return block.entries.filter(credentialEntryHasContent).map(renderCredentialEntry).join(ENTRY_SEPARATOR);
     case "role":
-      return block.entries.filter(roleEntryHasContent).map(renderRoleEntry).join("\n\n");
+      return block.entries.filter(roleEntryHasContent).map(renderRoleEntry).join(ENTRY_SEPARATOR);
     case "project":
-      return block.entries.filter(projectEntryHasContent).map(renderProjectEntry).join("\n\n");
+      return block.entries.filter(projectEntryHasContent).map(renderProjectEntry).join(ENTRY_SEPARATOR);
     case "numbered-list":
       return renderNumberedList(block.items);
     case "dated-list":
@@ -312,14 +345,14 @@ function renderBlockContent(block: CVBlock, language: CVLanguageCode): string {
 function renderBlocks(blocks: CVBlock[], language: CVLanguageCode): string {
   return blocks
     .filter((block) => !block.hidden && hasText(block.title) && blockHasContent(block))
-    .map((block) => sectionBlock(block.title, renderBlockContent(block, language)))
+    .map((block, index) => sectionBlock(block.title, renderBlockContent(block, language), index > 0 && block.pageBreakBefore === true))
     .join("\n\n");
 }
 
 function renderFixedStylePreamble(): string {
   return String.raw`\documentclass[a4paper, 10pt]{article}
 
-\usepackage[top=1.2cm, bottom=2.6cm, left=1.8cm, right=2.3cm, marginparwidth=1.75cm]{geometry}
+\usepackage[top=${PAGE_LAYOUT.topCm}cm, bottom=${PAGE_LAYOUT.bottomCm}cm, left=${PAGE_LAYOUT.leftCm}cm, right=${PAGE_LAYOUT.rightCm}cm, marginparwidth=1.75cm]{geometry}
 \usepackage{xcolor}
 \usepackage{fontspec}
 \PassOptionsToPackage{fontset=none}{ctex}
@@ -473,19 +506,76 @@ function renderFixedStylePreamble(): string {
 
 \renewcommand{\emph}[1]{\textbf{\fontsize{11pt}{11pt}\selectfont #1}}
 
-\newcommand{\sectionBlock}[2]{%
-  \noindent
-  \begin{minipage}[t]{2.7cm}
+% ── Section layout ──────────────────────────────────────
+% A section is a single-item list whose label (the section title) hangs in
+% the left column. Unlike a pair of minipages, the body can break across
+% pages, so a long section continues on the next page instead of leaving
+% the rest of the current one blank.
+\newlength{\SectionLabelWidth}
+\setlength{\SectionLabelWidth}{${PAGE_LAYOUT.sectionLabelCm}cm}
+\newlength{\SectionBodyWidth}
+\setlength{\SectionBodyWidth}{${PAGE_LAYOUT.sectionBodyCm}cm}
+\newlength{\SectionSkip}
+\setlength{\SectionSkip}{25pt}
+
+\makeatletter
+% Preferred page break between entries: if the next entry does not fit on
+% the current page it moves to the next page as a whole; an entry taller
+% than a full page still breaks between its bullets.
+\newcommand{\cvEntryBreak}{\par\vfil\penalty-200\vfilneg}
+\newcommand{\cvNoBreakVspace}[1]{%
+  \ifvmode\nobreak\vskip#1\relax\else\vadjust{\nobreak\vskip#1\vskip\z@skip}\fi}
+
+% Keeps an entry heading attached to its first bullet and avoids single
+% lines left behind when a long entry has to split.
+\newenvironment{cvEntry}{%
+  \par
+  \@beginparpenalty\@M
+  \clubpenalty\@M
+  \widowpenalty\@M
+}{\par}
+
+\newsavebox{\cvLabelBox}
+\newdimen\cvSectionStart
+\newcount\cvSectionPage
+\newenvironment{cvSection}[1]{%
+  \cvEntryBreak
+  \sbox{\cvLabelBox}{\begin{minipage}[t]{\SectionLabelWidth}\raggedright #1\end{minipage}}%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{\dimexpr\textwidth-\SectionBodyWidth\relax}%
+    \setlength{\labelwidth}{\SectionLabelWidth}%
+    \setlength{\labelsep}{\dimexpr\leftmargin-\SectionLabelWidth\relax}%
+    \setlength{\rightmargin}{\z@}%
+    \setlength{\itemindent}{\z@}%
+    \setlength{\listparindent}{\z@}%
+    \setlength{\topsep}{\z@}%
+    \setlength{\partopsep}{\z@}%
+    \setlength{\parsep}{\z@}%
+    \setlength{\itemsep}{\z@}%
+    \renewcommand{\makelabel}[1]{##1\hfil}}%
+  % Nested lists behave as top-level lists, as they did inside a minipage.
+  \@listdepth\z@
   \raggedright
-  #1
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{13.85cm}
-  \raggedright
-  #2
-  \end{minipage}
-  \vspace{25pt}
+  \cvSectionPage\c@page
+  \cvSectionStart\dimexpr\pagetotal+\pagedepth\relax
+  \item[{\raisebox{\z@}[\z@][\z@]{\usebox{\cvLabelBox}}}]%
+}{%
+  \par
+  % Reserve room for a section title that is taller than its body.
+  \ifnum\cvSectionPage=\c@page
+    \@tempdima\dimexpr\ht\cvLabelBox+\dp\cvLabelBox-\pagetotal-\pagedepth+\cvSectionStart\relax
+    \ifdim\@tempdima>\z@\nobreak\vskip\@tempdima\fi
+  \fi
+  \end{list}%
+  \vspace{\SectionSkip}%
 }
+
+% Inside a list: only break pages at \cvEntryBreak, never between items.
+\newcommand{\cvKeepItems}{\@itempenalty\@M}
+
+% Explicit page break requested for a section ("Start on new page").
+\newcommand{\cvSectionPageBreak}{\par\newpage}
+\makeatother
 
 \titleformat{\section}{
   \setstretch{1.0}
@@ -533,29 +623,29 @@ function renderFixedStylePreamble(): string {
 \newcommand{\skillListEnd}{\end{itemize}\vspace{-11pt}}
 \newcommand{\itemListStart}{\begin{itemize}[itemsep=0pt]}
 \newcommand{\itemListEnd}{\end{itemize}}
-\newcommand{\myItem}[1]{\item{{#1 \vspace{-2pt}}}}
+\newcommand{\myItem}[1]{\item{{#1\cvNoBreakVspace{-2pt}}}}
 
 \newcommand{\eduHeading}[4]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{p{13.74cm}}
+  \begin{tabular}[t]{@{}p{\linewidth}@{}}
     \emph{#1} \hfill #2 \\
     \textit{#3} \hfill #4 \\
-  \end{tabular}\vspace{-7pt}
+  \end{tabular}\cvNoBreakVspace{-7pt}
 }
 
 \newcommand{\internHeading}[3]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{p{13.74cm}}
+  \begin{tabular}[t]{@{}p{\linewidth}@{}}
     \emph{#1} $|$ #2 \hfill #3 \\
-  \end{tabular}\vspace{-7pt}
+  \end{tabular}\cvNoBreakVspace{-7pt}
 }
 
 \newcommand{\projHeading}[3]{
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabular}[t]{p{13.74cm}}
+  \begin{tabular}[t]{@{}p{\linewidth}@{}}
     \textbf{#1} \hfill \\
     \textit{#2} \hfill #3 \\
-  \end{tabular}\vspace{2pt}
+  \end{tabular}\cvNoBreakVspace{2pt}
 }`;
 }
 
@@ -574,17 +664,18 @@ function nameFontForLanguage(language: CVLanguageCode): string {
 function renderHeader(document: CVDocument, language: CVLanguageCode): string {
   const contacts = document.header.contacts
     .filter(hasText)
-    .map((contact) => `  \\item {\\ContactFont ${inlineLatex(contact)}}`)
+    .map((contact) => `    {\\ContactFont ${inlineLatex(contact)}}\\\\`)
     .join("\n");
+  // The contact block is bottom-aligned with the name line, so any number of
+  // contacts or a long name never overlap; if both do not fit side by side,
+  // the contacts wrap below the name instead.
+  const contactBlock = contacts
+    ? `\\nobreak\\hskip 0pt plus 1filll\\penalty50\\hskip1em\\null\\nobreak\\hskip 0pt plus 1filll\n  {\\setstretch{0.6}\\begin{tabular}[b]{@{}r@{}}\n${contacts}\n  \\end{tabular}}`
+    : "";
 
-  return String.raw`\begin{flushright}
-  \setstretch{0.6}
-${contacts}
-\end{flushright}\vspace{-45pt}
-
-\begin{flushleft}
-  {${nameFontForLanguage(language)} ${inlineLatex(document.header.name)}} \quad
-  {\SuffixFont ${inlineLatex(document.header.suffix)}}
+  return String.raw`\begin{flushleft}
+  \mbox{{${nameFontForLanguage(language)} ${inlineLatex(document.header.name)}} \quad
+  {\SuffixFont ${inlineLatex(document.header.suffix)}}}${contactBlock}{\parfillskip=0pt\par}
   \noindent\rule{\textwidth}{0.4pt}
 \end{flushleft}`;
 }

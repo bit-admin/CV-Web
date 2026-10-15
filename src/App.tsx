@@ -20,6 +20,8 @@ import {
   X
 } from "lucide-react";
 import { PdfPreview } from "./components/PdfPreview";
+import { LayoutPanel } from "./components/LayoutPanel";
+import { locateSnippet, type LayoutIssue } from "./lib/layoutAnalysis";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock, exportWorkspaceAsAIJSON, mapAICVToWorkspace } from "./lib/document";
 import { renderLatex } from "./lib/latex";
 import { LatexEngineService } from "./lib/latexEngine";
@@ -1172,7 +1174,10 @@ function DocumentOutline({
             onClick={() => onSelect(block.id)}
           >
             <strong>{block.title || `Section ${index + 1}`}</strong>
-            <span>{blockTypeLabels[block.type].toUpperCase()}</span>
+            <span>
+              {blockTypeLabels[block.type].toUpperCase()}
+              {block.pageBreakBefore && index > 0 ? " · NEW PAGE" : ""}
+            </span>
           </button>
         ))}
       </div>
@@ -1291,6 +1296,22 @@ function BlockEditor({
             placeholder="Section title"
             onChange={(title) => onChange({ ...block, title })}
           />
+          <label className="check-field">
+            <input
+              type="checkbox"
+              checked={block.pageBreakBefore === true}
+              disabled={index === 0}
+              onChange={(event) => onChange({ ...block, pageBreakBefore: event.target.checked })}
+            />
+            <span>
+              <strong>Start on new page</strong>
+              <small>
+                {index === 0
+                  ? "The first section already starts on the first page."
+                  : "Long sections break between entries automatically; use this to force a break before this section."}
+              </small>
+            </span>
+          </label>
         </div>
 
         {block.type === "credential" && (
@@ -1370,6 +1391,9 @@ export function App() {
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [compileLog, setCompileLog] = useState("");
   const [activeModal, setActiveModal] = useState<null | "ai" | "format" | "license">(null);
+  const [layoutIssues, setLayoutIssues] = useState<LayoutIssue[]>([]);
+  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+  const [showLayoutHints, setShowLayoutHints] = useState(true);
   const closeModal = useCallback(() => setActiveModal(null), []);
 
   useEffect(() => {
@@ -1580,6 +1604,26 @@ export function App() {
     });
   }, [activeBlock, updateDocument]);
 
+  const handleLayoutIssues = useCallback((issues: LayoutIssue[]) => {
+    setLayoutIssues(issues);
+    setActiveIssueId(null);
+  }, []);
+
+  const selectLayoutIssue = useCallback(
+    (issue: LayoutIssue) => {
+      setActiveIssueId(issue.id);
+      setShowLayoutHints(true);
+      const target = issue.snippet ? locateSnippet(workspace, issue.snippet) : null;
+      if (target) {
+        if (target.language !== workspace.activeLanguage) {
+          selectLanguage(target.language);
+        }
+        setActiveSelection(target.blockId);
+      }
+    },
+    [selectLanguage, workspace]
+  );
+
   const compile = useCallback(async () => {
     const engine = engineRef.current ?? new LatexEngineService();
     engineRef.current = engine;
@@ -1730,6 +1774,9 @@ export function App() {
             type="button"
             className="ghost-button"
             onClick={() => {
+              if (!window.confirm("Reset to the sample CV? This deletes everything you have entered in all languages. To keep a copy, use “Export Current CV” in “Generate CV with AI” first.")) {
+                return;
+              }
               clearStoredDocument();
               setWorkspace(cloneSample());
               setActiveSelection("header");
@@ -1749,7 +1796,24 @@ export function App() {
           </pre>
         )}
 
-        <PdfPreview bytes={compileResult?.pdf ?? null} compileState={compileState} />
+        {compileResult && compileState === "ready" && (
+          <LayoutPanel
+            issues={layoutIssues}
+            activeIssueId={activeIssueId}
+            showHints={showLayoutHints}
+            onToggleHints={() => setShowLayoutHints((value) => !value)}
+            onSelect={selectLayoutIssue}
+          />
+        )}
+
+        <PdfPreview
+          bytes={compileResult?.pdf ?? null}
+          compileState={compileState}
+          showLayoutHints={showLayoutHints}
+          activeIssueId={activeIssueId}
+          onLayoutIssues={handleLayoutIssues}
+          onSelectIssue={selectLayoutIssue}
+        />
       </section>
 
       {activeModal && (

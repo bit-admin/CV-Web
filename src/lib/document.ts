@@ -406,7 +406,8 @@ function normalizeBlock(value: unknown, fallbackIndex: number): CVBlock | null {
   const base = {
     id: text(value.id) || blockId(type, fallbackIndex),
     title: text(value.title) || BLOCK_TEMPLATE_TITLES[type],
-    hidden: value.hidden === true
+    hidden: value.hidden === true,
+    ...(value.pageBreakBefore === true ? { pageBreakBefore: true } : {})
   };
 
   switch (type) {
@@ -633,7 +634,7 @@ export function mapAICVToWorkspace(input: unknown): CVWorkspace | string {
 }
 
 function stripBlock(block: CVBlock): Record<string, unknown> {
-  const { id: _id, hidden: _hidden, ...rest } = block;
+  const { id: _id, hidden: _hidden, pageBreakBefore: _pageBreakBefore, ...rest } = block;
   return rest;
 }
 
