@@ -14,6 +14,7 @@ function readJson(key: string): unknown | null {
   }
 }
 
+/** Reads the single CV stored before the CV library existed (any generation). */
 export function loadStoredWorkspace(): CVWorkspace | null {
   const storedWorkspace = normalizeWorkspace(readJson(STORAGE_KEY_V3));
   if (storedWorkspace) {
@@ -27,10 +28,6 @@ export function loadStoredWorkspace(): CVWorkspace | null {
 
   const legacyData = readJson(STORAGE_KEY_V1);
   return legacyData ? migrateDocumentToWorkspace(migrateCvData(legacyData)) : null;
-}
-
-export function saveStoredWorkspace(workspace: CVWorkspace): void {
-  localStorage.setItem(STORAGE_KEY_V3, JSON.stringify(workspace));
 }
 
 export function clearStoredDocument(): void {
