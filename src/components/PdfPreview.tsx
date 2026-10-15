@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { FileText } from "lucide-react";
 import type { CompileState } from "../lib/types";
 import { analyzeLayout, type LayoutIssue, type PdfPageText } from "../lib/layoutAnalysis";
+import { PAGE_LAYOUT } from "../lib/latex";
 import { extractPageText } from "../lib/pdfText";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
@@ -275,13 +276,17 @@ export function PdfPreview({
 }
 
 const HEADER_FONT_SIZE = 20;
+const PT_PER_CM = 72 / 2.54;
+/** Right edge of the section-title column: where the section body begins, less a little slack. */
+const LABEL_COLUMN_END_PT =
+  (PAGE_LAYOUT.pageWidthCm - PAGE_LAYOUT.rightCm - PAGE_LAYOUT.sectionBodyCm - 0.3) * PT_PER_CM;
 
 function letters(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
 }
 
 /** Finds a heading in the left column of the given CV; y is a fraction of the page height (0 = top). */
-function findHeading(texts: PdfPageText[], focus: PreviewFocus): { page: number; y: number } | null {
+export function findHeading(texts: PdfPageText[], focus: PreviewFocus): { page: number; y: number } | null {
   const starts = texts.flatMap((page, index) => (page.runs.some((run) => run.fontSize >= HEADER_FONT_SIZE && run.text.trim()) ? [index] : []));
   const start = starts[focus.cvIndex] ?? 0;
   const end = starts[focus.cvIndex + 1] ?? texts.length;
@@ -289,10 +294,11 @@ function findHeading(texts: PdfPageText[], focus: PreviewFocus): { page: number;
   if (needle.length >= 2) {
     for (let index = start; index < end; index += 1) {
       const page = texts[index];
-      // Headings sit in the left column; join runs on the same line there.
+      // Headings sit in the label column, left of the section body (a
+      // bullet's text starts further right); join runs on the same line there.
       const lines = new Map<number, string>();
       for (const run of page.runs) {
-        if (run.x > page.width * 0.32) continue;
+        if (run.x >= LABEL_COLUMN_END_PT) continue;
         const key = Math.round(run.y);
         lines.set(key, (lines.get(key) ?? "") + run.text);
       }

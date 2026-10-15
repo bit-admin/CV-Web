@@ -160,20 +160,12 @@ code {
 }
 
 .brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
   margin-right: 6px;
   color: var(--ink);
   font-family: var(--font-serif);
   font-size: 19px;
   line-height: 1;
   white-space: nowrap;
-}
-
-.brand-mark {
-  flex-shrink: 0;
-  color: var(--ink);
 }
 
 .topbar-divider {

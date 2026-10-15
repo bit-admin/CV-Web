@@ -256,15 +256,3 @@ export function Kbd({ children }: { children: ReactNode }) {
     </kbd>
   );
 }
-
-/** The “CV” mark (same drawing as public/favicon.svg). */
-export function BrandMark({ size = 22 }: { size?: number }) {
-  return (
-    <svg className="brand-mark" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" fill="currentColor" />
-      <path d="M30.06 23.64A9.5 9.5 0 1 0 30.06 36.36" fill="none" stroke="#fff" strokeWidth="5" />
-      <path d="M36 18h5.8L46 31.8 50.2 18H56l-7.3 24h-5.4z" fill="#fff" />
-      <path d="M8.5 49.5h47.5" stroke="#fff" strokeWidth="2" />
-    </svg>
-  );
-}
