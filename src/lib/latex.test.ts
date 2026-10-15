@@ -313,6 +313,6 @@ describe("LaTeX renderer", () => {
     const tex = renderLatex(createSampleWorkspace());
 
     expect(tex).not.toContain("\\vspace{-45pt}");
-    expect(tex).toContain("\\begin{tabular}[b]{@{}r@{}}");
+    expect(tex).toContain("\\vbox{\\kern12.8pt\\halign{\\hfil#\\cr");
   });
 });

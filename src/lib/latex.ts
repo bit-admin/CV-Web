@@ -664,13 +664,19 @@ function nameFontForLanguage(language: CVLanguageCode): string {
 function renderHeader(document: CVDocument, language: CVLanguageCode): string {
   const contacts = document.header.contacts
     .filter(hasText)
-    .map((contact) => `    {\\ContactFont ${inlineLatex(contact)}}\\\\`)
-    .join("\n");
-  // The contact block is bottom-aligned with the name line, so any number of
-  // contacts or a long name never overlap; if both do not fit side by side,
-  // the contacts wrap below the name instead.
+    .map((contact) => `{\\ContactFont ${inlineLatex(contact)}}\\cr`)
+    .join("\\noalign{\\vskip4pt}\n    ");
+  // Contacts are right-aligned rows in a \vbox, whose baseline is the last
+  // row, so the name lines up with the last contact for any number of
+  // contacts. Row spacing (stretch 0.6 + 4pt) matches the previous
+  // flushright list. If name and contacts do not fit side by side, the
+  // contacts wrap below the name, still flush right. The 12.8pt kern keeps
+  // the name and everything below where the original template put them (its
+  // contact list started with an empty line).
   const contactBlock = contacts
-    ? `\\nobreak\\hskip 0pt plus 1filll\\penalty50\\hskip1em\\null\\nobreak\\hskip 0pt plus 1filll\n  {\\setstretch{0.6}\\begin{tabular}[b]{@{}r@{}}\n${contacts}\n  \\end{tabular}}`
+    ? `\\nobreak\\hskip 0pt plus 1filll\\penalty50\\hskip1em\\null\\nobreak\\hskip 0pt plus 1filll
+  {\\setstretch{0.6}\\vbox{\\kern12.8pt\\halign{\\hfil#\\cr
+    ${contacts}}}}`
     : "";
 
   return String.raw`\begin{flushleft}
