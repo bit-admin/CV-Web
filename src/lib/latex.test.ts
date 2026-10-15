@@ -25,6 +25,13 @@ function documentWithBlocks(blocks: CVBlock[]): CVDocument {
   };
 }
 
+/** The sample with all three languages enabled; the app ships it English-only. */
+function threeLanguageSample(): CVWorkspace {
+  const workspace = createSampleWorkspace();
+  workspace.languages.forEach((language) => (language.enabled = true));
+  return workspace;
+}
+
 function workspaceWithDocument(document: CVDocument, code: CVLanguageCode = "en"): CVWorkspace {
   return {
     version: 3,
@@ -213,19 +220,20 @@ describe("LaTeX renderer", () => {
     expect(workspace?.languages.find((language) => language.code === "zh")?.enabled).toBe(false);
   });
 
-  it("creates a sample workspace with all three languages enabled", () => {
+  it("creates an English-only sample workspace, so CJK fonts are not downloaded up front", () => {
     const workspace = createSampleWorkspace();
 
     expect(workspace.languages.map((language) => [language.code, language.enabled])).toEqual([
       ["en", true],
-      ["zh", true],
-      ["ja", true]
+      ["zh", false],
+      ["ja", false]
     ]);
+    expect(workspace.languages.find((language) => language.code === "ja")?.document.blocks.length).toBeGreaterThan(0);
     expect(workspace.languages.find((language) => language.code === "zh")?.document.header.name).toBe("小林春香");
   });
 
   it("renders enabled languages in order and omits disabled languages", () => {
-    const workspace = createSampleWorkspace();
+    const workspace = threeLanguageSample();
     workspace.languages.find((language) => language.code === "zh")!.enabled = false;
 
     const tex = renderLatex(workspace);
@@ -238,7 +246,7 @@ describe("LaTeX renderer", () => {
   });
 
   it("includes CJK font declarations", () => {
-    const tex = renderLatex(createSampleWorkspace());
+    const tex = renderLatex(threeLanguageSample());
 
     expect(tex).toContain("\\PassOptionsToPackage{fontset=none}{ctex}");
     expect(tex).toContain("\\usepackage[scheme=plain]{ctex}");
@@ -257,7 +265,7 @@ describe("LaTeX renderer", () => {
   });
 
   it("renders Chinese and Japanese sample text while escaping percentages", () => {
-    const tex = renderLatex(createSampleWorkspace());
+    const tex = renderLatex(threeLanguageSample());
 
     expect(tex).toContain("毕业成绩位列本届前 3\\%。");
     expect(tex).toContain("合成指値注文板環境");

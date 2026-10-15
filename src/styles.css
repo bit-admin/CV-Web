@@ -1736,10 +1736,144 @@ input:focus-visible + .toggle-track {
   color: var(--muted);
 }
 
-.preview-download {
-  color: var(--info);
-  font-size: 13px;
+.download-card {
+  width: min(380px, 100%);
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgba(17, 20, 24, 0.04);
+  color: var(--text);
+  text-align: left;
   font-variant-numeric: tabular-nums;
+}
+
+.download-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--info);
+}
+
+.download-card-head > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.download-card-head > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.download-card-head strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.download-card-head div span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.download-card-percent {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.download-meter {
+  position: relative;
+  height: 4px;
+  margin: 16px 0 8px;
+  overflow: hidden;
+  background: var(--bg-3);
+}
+
+.download-meter::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--progress, 0%);
+  background: var(--info);
+  transition: width 0.3s linear;
+}
+
+.download-card-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.download-card-groups {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.download-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.download-group-mark {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--line-2);
+  border-radius: 50%;
+  color: #fff;
+}
+
+.download-group--active .download-group-mark {
+  border-color: var(--info);
+  border-top-color: transparent;
+  animation: download-spin 0.9s linear infinite;
+}
+
+.download-group--done .download-group-mark {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+
+.download-group-label {
+  flex: 1;
+}
+
+.download-group--waiting .download-group-label {
+  color: var(--muted);
+}
+
+.download-group-size {
+  color: var(--muted);
+}
+
+.download-card .download-card-note {
+  margin: 14px 0 0;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+@keyframes download-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-group--active .download-group-mark {
+    animation: none;
+  }
 }
 
 .preview-rendering {

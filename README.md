@@ -30,23 +30,24 @@ The browser runtime is fully hosted from `public/`:
 - `public/core/packs` — the WASM, TeX Live data and large fonts, gzipped and split into parts.
 - `public/core/runtime-manifest.json` — every runtime file with its size, content hash and parts.
 
-Cloudflare limits static assets to 25 MiB per file and does not compress `.data`, `.ttc` or split files, so after adding or redownloading runtime files run:
+These are built from the BusyTeX release in `vendor/busytex`:
 
 ```bash
-npm run assets:split
+npm run assets:download   # fetch the BusyTeX release into vendor/, then build
+npm run assets:build      # rebuild public/ from vendor/ (after changing the template, fonts or TeX files)
 ```
 
-If you redownload BusyTeX assets, run:
+The build trims BusyTeX's 87 MiB TeX Live package to the ~7 MiB this template uses: it runs the engine in Node on the CVs in `scripts/coverage-cvs.ts`, keeps the files they touch, shrinks ICU's data with `icupkg` (`brew install icu4c`), and fails unless every CV compiles to a byte-identical PDF. Large binaries are then gzipped into parts, since Cloudflare limits static assets to 25 MiB and does not compress `.data`, `.ttc` or split files.
 
-```bash
-npm run assets:download
-```
-
-This downloads the stock BusyTeX assets, keeps the checked-in `fontspec`/`xcolor` supplemental files, prunes the unused recommended/extra packs, and packs the large binaries. On first use the app downloads what the CV needs (the Chinese and Japanese fonts only when those languages are used), showing progress, and keeps it in Cache Storage under content-hashed keys, so later visits and deploys that do not change the engine download nothing. The app still requests the original URLs such as `/core/busytex/texlive-basic.data`; `public/service-worker.js` answers them from that cache.
+On first use the app downloads what the CV needs (the Chinese and Japanese fonts only when those languages are on), showing progress, and keeps it in Cache Storage under content-hashed keys, resuming after a reload; later visits, and deploys that do not change the engine, download nothing. The app still requests the original URLs such as `/core/busytex/texlive-basic.data`; `public/service-worker.js` answers them from that cache.
 
 ## Deploy to Cloudflare Workers
 
-The project deploys as a static-assets-only Worker configured in `wrangler.jsonc` (assets directory: `./dist`, single-page-application fallback). No Worker script runs, so requests are served directly from the asset store.
+The project deploys as a static-assets-only Worker (assets directory: `./dist`, single-page-application fallback). No Worker script runs, so requests are served directly from the asset store. `wrangler.jsonc` is gitignored so it can hold your own domain; create it from the example:
+
+```bash
+cp wrangler.example.jsonc wrangler.jsonc   # then set routes to your domain, or remove them
+```
 
 ### Wrangler CLI
 
@@ -59,7 +60,7 @@ The project deploys as a static-assets-only Worker configured in `wrangler.jsonc
    npm run deploy
    ```
 
-`npm run deploy` runs `wrangler deploy`, which deploys `./dist` to the `cv-web` Worker. Attach a custom domain in Cloudflare Dashboard → **Workers & Pages** → `cv-web` → **Settings** → **Domains & Routes**.
+`npm run deploy` runs `wrangler deploy`, which deploys `./dist` to the `cv-web` Worker. The `routes` entry in `wrangler.jsonc` attaches a custom domain (its zone must be on your Cloudflare account); without it the Worker is served on `*.workers.dev`.
 
 ### Git Integration
 

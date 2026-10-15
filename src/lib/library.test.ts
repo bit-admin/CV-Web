@@ -163,6 +163,7 @@ describe("describeChanges", () => {
 
   it("prefixes the language when several are enabled", () => {
     const older = createSampleWorkspace();
+    older.languages.forEach((language) => (language.enabled = true));
     const newer = structuredClone(older);
     newer.languages.find((language) => language.code === "ja")!.document.header.name = "新しい名前";
     newer.languages.find((language) => language.code === "zh")!.enabled = false;

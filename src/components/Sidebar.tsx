@@ -53,6 +53,8 @@ type SidebarProps = {
   onSelect: (selection: string) => void;
   onSelectLanguage: (code: CVLanguageCode) => void;
   onToggleLanguage: (code: CVLanguageCode) => void;
+  /** Bytes of fonts each language still needs to download, shown before it is turned on. */
+  fontDownloads: Partial<Record<CVLanguageCode, number>>;
   onAddBlock: (type: CVBlockType) => void;
   onReorder: (from: number, to: number) => void;
 };
@@ -65,6 +67,7 @@ export function Sidebar({
   onSelect,
   onSelectLanguage,
   onToggleLanguage,
+  fontDownloads,
   onAddBlock,
   onReorder
 }: SidebarProps) {
@@ -96,19 +99,28 @@ export function Sidebar({
         <ul className="language-list">
           {workspace.languages.map((language) => {
             const active = workspace.activeLanguage === language.code;
+            const pendingMb = language.enabled ? 0 : Math.round((fontDownloads[language.code] ?? 0) / 1024 / 1024);
             return (
               <li key={language.code} className={`language-item${active ? " active" : ""}${language.enabled ? "" : " disabled"}`}>
                 <input
                   type="checkbox"
                   checked={language.enabled}
                   disabled={language.enabled && enabledCount === 1}
-                  title={language.enabled ? `Leave ${language.label} out of the PDF` : `Include ${language.label} in the PDF`}
+                  title={
+                    language.enabled
+                      ? `Leave ${language.label} out of the PDF`
+                      : pendingMb > 0
+                        ? `Include ${language.label} in the PDF (downloads ${pendingMb} MB of fonts once)`
+                        : `Include ${language.label} in the PDF`
+                  }
                   aria-label={`Include ${language.label} in the PDF`}
                   onChange={() => onToggleLanguage(language.code)}
                 />
                 <button type="button" aria-current={active ? "true" : undefined} onClick={() => onSelectLanguage(language.code)}>
                   <span>{nativeNames[language.code]}</span>
-                  <small>{language.enabled ? (active ? "Editing" : language.code.toUpperCase()) : "Off"}</small>
+                  <small>
+                    {language.enabled ? (active ? "Editing" : language.code.toUpperCase()) : pendingMb > 0 ? `Off · ${pendingMb} MB` : "Off"}
+                  </small>
                 </button>
               </li>
             );

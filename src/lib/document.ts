@@ -536,12 +536,22 @@ export function createSampleDocument(): CVDocument {
   return migrateCvData(sampleCv);
 }
 
+/**
+ * The sample starts in English only, so a first visit does not download the Chinese and Japanese fonts (tens of
+ * megabytes each); turning a language on shows its sample text.
+ */
+const SAMPLE_DISABLED_LANGUAGES: CVLanguageCode[] = ["zh", "ja"];
+
 export function createSampleWorkspace(): CVWorkspace {
   return {
     version: WORKSPACE_VERSION,
     activeLanguage: "en",
     languages: LANGUAGE_ORDER.map((code) =>
-      createLanguageDocument(code, migrateCvData(sampleCvByLanguage[code], SAMPLE_BLOCK_TITLES_BY_LANGUAGE[code]), true)
+      createLanguageDocument(
+        code,
+        migrateCvData(sampleCvByLanguage[code], SAMPLE_BLOCK_TITLES_BY_LANGUAGE[code]),
+        !SAMPLE_DISABLED_LANGUAGES.includes(code)
+      )
     )
   };
 }
