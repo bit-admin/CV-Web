@@ -27,7 +27,7 @@ import { LayoutDock } from "./components/LayoutPanel";
 import { LibraryModal } from "./components/LibraryModal";
 import { PdfPreview, scrollPreviewToPage, type PageInfo, type PreviewFocus, type Zoom } from "./components/PdfPreview";
 import { Sidebar } from "./components/Sidebar";
-import { BrandMark, IconButton, Kbd, MenuButton, MOD } from "./components/ui";
+import { BrandMark, IconButton, Kbd, keys, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
 import { renderLatex } from "./lib/latex";
@@ -605,7 +605,7 @@ export function App() {
           <IconButton variant="ghost" label={`Undo (${MOD}Z)`} disabled={!history.canUndo} onClick={() => history.undo()}>
             <Undo2 size={15} />
           </IconButton>
-          <IconButton variant="ghost" label={`Redo (${MOD}Shift+Z)`} disabled={!history.canRedo} onClick={() => history.redo()}>
+          <IconButton variant="ghost" label={`Redo (${keys(`${MOD}Shift+Z`)})`} disabled={!history.canRedo} onClick={() => history.redo()}>
             <Redo2 size={15} />
           </IconButton>
           <span className="topbar-divider" />

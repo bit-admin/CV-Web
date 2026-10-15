@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { ClipboardEvent, KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { splitPastedList } from "../lib/editing";
-import { TextArea } from "./ui";
+import { keys as shortcut, TextArea } from "./ui";
 
 let keySeed = 0;
 const nextKey = () => `k${(keySeed += 1)}`;
@@ -39,10 +39,10 @@ type Marker = "bullet" | "number" | "none";
 export function MoveButtons({ noun, index, count, onMove }: { noun: string; index: number; count: number; onMove: (to: number) => void }) {
   return (
     <span className="list-move">
-      <button type="button" aria-label={`Move ${noun} up (Alt+↑)`} title={`Move up (Alt+↑)`} disabled={index === 0} onClick={() => onMove(index - 1)}>
+      <button type="button" aria-label={`Move ${noun} up (${shortcut("Alt+↑")})`} title={`Move up (${shortcut("Alt+↑")})`} disabled={index === 0} onClick={() => onMove(index - 1)}>
         <ArrowUp size={11} />
       </button>
-      <button type="button" aria-label={`Move ${noun} down (Alt+↓)`} title={`Move down (Alt+↓)`} disabled={index === count - 1} onClick={() => onMove(index + 1)}>
+      <button type="button" aria-label={`Move ${noun} down (${shortcut("Alt+↓")})`} title={`Move down (${shortcut("Alt+↓")})`} disabled={index === count - 1} onClick={() => onMove(index + 1)}>
         <ArrowDown size={11} />
       </button>
     </span>

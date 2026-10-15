@@ -230,14 +230,18 @@ export function MenuButton({
 
 const KEY_SYMBOLS = /([⌘⇧⌥⌃↑↓←→↵])/;
 
+/** A shortcut as this platform writes it: "Alt+↑" is "⌥↑" on a Mac. */
+export function keys(text: string): string {
+  return isMac ? text.replace(/Shift\+/g, "⇧").replace(/Alt\+/g, "⌥") : text;
+}
+
 /**
  * A key or shortcut, e.g. `{MOD}Shift+Z`. On a Mac, Shift and Alt become ⇧
  * and ⌥ (⌘⇧Z, ⌥↑), as in native menus. Symbols get a slightly larger size,
  * since most fonts draw them small.
  */
 export function Kbd({ children }: { children: ReactNode }) {
-  const text = (Array.isArray(children) ? children : [children]).join("");
-  const label = isMac ? text.replace(/Shift\+/g, "⇧").replace(/Alt\+/g, "⌥") : text;
+  const label = keys((Array.isArray(children) ? children : [children]).join(""));
   return (
     <kbd className="kbd">
       {label.split(KEY_SYMBOLS).map((part, index) =>
