@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Trash2, X } from "lucide-react";
 import type {
   CredentialEntry,
@@ -84,7 +85,7 @@ function FormattingFooter() {
       </span>
       <span className="editor-foot-sep" />
       <span className="editor-foot-extra">
-        <Kbd>Enter</Kbd> new item · <Kbd>Alt+↑↓</Kbd> move
+        In lists: <Kbd>Enter</Kbd> new item · <Kbd>Alt+↑↓</Kbd> move
       </span>
     </footer>
   );
@@ -147,18 +148,64 @@ function RowList<T>({
   children: (item: T, update: (patch: Partial<T>) => void, index: number) => ReactNode;
 }) {
   const { keys, insert, remove, move } = useListKeys(items.length);
+  const root = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<string | null>(null);
+
+  // Focus the first field of a row that was just added or moved.
+  useEffect(() => {
+    const key = pendingFocus.current;
+    if (!key) return;
+    const field = root.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-row-key="${key}"] :is(input, textarea)`);
+    if (field) {
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+      pendingFocus.current = null;
+    }
+  });
+
   const moveTo = (from: number, to: number) => {
+    if (to < 0 || to >= items.length) return;
     move(from, to);
+    pendingFocus.current = keys[to];
     const next = [...items];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     onChange(next);
   };
+
+  const addAt = (index: number) => {
+    insert(index);
+    pendingFocus.current = keys[index];
+    onChange([...items.slice(0, index), create(), ...items.slice(index)]);
+  };
+
+  // Same keys as the bullet lists: Enter adds a row below, Backspace in an
+  // empty row removes it, Alt+↑/↓ moves the row.
+  const handleKeyDown = (index: number) => (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      addAt(index + 1);
+    } else if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+      moveTo(index, index + (event.key === "ArrowUp" ? -1 : 1));
+    } else if (event.key === "Backspace" && items.length > 1) {
+      const fields = [...event.currentTarget.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")];
+      if (fields.every((field) => field.value === "")) {
+        event.preventDefault();
+        remove(index);
+        pendingFocus.current = keys[index > 0 ? index - 1 : 0];
+        onChange(items.filter((_, i) => i !== index));
+      }
+    }
+  };
+
   return (
-    <div className={`row-list ${className}`}>
+    <div className={`row-list ${className}`} ref={root}>
       {items.length === 0 && <p className="list-empty">No {noun}s yet.</p>}
       {items.map((item, index) => (
-        <div className="row-list-row" key={keys[index]}>
+        <div className="row-list-row" key={keys[index]} data-row-key={keys[index]} onKeyDown={handleKeyDown(index)}>
           <span className="list-gutter">
             <span className="list-marker" aria-hidden="true" />
             <MoveButtons noun={noun} index={index} count={items.length} onMove={(to) => moveTo(index, to)} />
@@ -178,14 +225,7 @@ function RowList<T>({
           </button>
         </div>
       ))}
-      <button
-        type="button"
-        className="add-row"
-        onClick={() => {
-          insert(items.length);
-          onChange([...items, create()]);
-        }}
-      >
+      <button type="button" className="add-row" onClick={() => addAt(items.length)}>
         <Plus size={13} />
         Add {noun}
       </button>
