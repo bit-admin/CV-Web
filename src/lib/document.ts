@@ -554,7 +554,7 @@ function mapBlock(raw: unknown): CVBlock | null {
   const base = {
     id: createBlockId(type),
     title: text(raw.title) || BLOCK_TEMPLATE_TITLES[type],
-    hidden: false
+    hidden: raw.hidden === true
   };
 
   switch (type) {
@@ -634,8 +634,10 @@ export function mapAICVToWorkspace(input: unknown): CVWorkspace | string {
 }
 
 function stripBlock(block: CVBlock): Record<string, unknown> {
-  const { id: _id, hidden: _hidden, pageBreakBefore: _pageBreakBefore, ...rest } = block;
-  return rest;
+  // Layout-only state stays out of the content JSON, but a hidden section
+  // keeps its flag so it is not shown again after re-import.
+  const { id: _id, hidden, pageBreakBefore: _pageBreakBefore, ...rest } = block;
+  return hidden ? { ...rest, hidden: true } : rest;
 }
 
 export function exportWorkspaceAsAIJSON(workspace: CVWorkspace): string {

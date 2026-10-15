@@ -512,14 +512,20 @@ function renderFixedStylePreamble(): string {
 \newcommand{\jpMono}{\CJKfamily{jpmono}}
 
 \newcommand{\BodyFont}{\Sabon}
-\newcommand{\NameFont}{\Calluna\fontsize{30pt}{30pt}\selectfont\scshape}
-\newcommand{\SuffixFont}{\Calluna\fontsize{14.5pt}{14.5pt}\selectfont\scshape}
+% Name and suffix sizes; \cvHeaderName reduces them for a name too wide to
+% fit beside the contacts.
+\newlength{\cvNameSize}
+\setlength{\cvNameSize}{30pt}
+\newlength{\cvSuffixSize}
+\setlength{\cvSuffixSize}{14.5pt}
+\newcommand{\NameFont}{\Calluna\fontsize{\cvNameSize}{\cvNameSize}\selectfont\scshape}
+\newcommand{\SuffixFont}{\Calluna\fontsize{\cvSuffixSize}{\cvSuffixSize}\selectfont\scshape}
 \newcommand{\ContactFont}{\Calluna}
 \newcommand{\SectionTitleFont}{\CronosLt\scshape\fontsize{14.5pt}{14.5pt}\selectfont}
 \newcommand{\MonoSmallFont}{\Courier\fontsize{11pt}{11pt}\selectfont}
-\newcommand{\ZhNameFont}{\zhTitle\fontsize{30pt}{30pt}\selectfont}
+\newcommand{\ZhNameFont}{\zhTitle\fontsize{\cvNameSize}{\cvNameSize}\selectfont}
 \newcommand{\ZhSectionTitleFont}{\CronosLt\scshape\zhFangsong\fontsize{14.5pt}{14.5pt}\selectfont}
-\newcommand{\JpNameFont}{\jpTitle\fontsize{30pt}{30pt}\selectfont}
+\newcommand{\JpNameFont}{\jpTitle\fontsize{\cvNameSize}{\cvNameSize}\selectfont}
 \newcommand{\JpSectionTitleFont}{\CronosLt\scshape\jpTitle\fontsize{14.5pt}{14.5pt}\selectfont}
 
 \renewcommand{\emph}[1]{\textbf{\fontsize{11pt}{11pt}\selectfont #1}}
@@ -651,6 +657,42 @@ function renderFixedStylePreamble(): string {
   \clubpenalty\@M
   \widowpenalty\@M}
 
+% ── Header name ─────────────────────────────────────────
+% The name line is raised by \cvHeaderOverlap to sit beside the last
+% contact lines. If name and suffix are wider than the space left of the
+% widest contact, both are scaled down; a strut keeps the full-size line
+% height so the name's baseline and everything below stay where they were.
+% A name that would need less than \cvNameMinSize keeps that size and moves
+% below the contacts instead.
+\newlength{\cvHeaderOverlap}
+\setlength{\cvHeaderOverlap}{45pt}
+\newlength{\cvContactWidth}
+\newlength{\cvNameGap}
+\setlength{\cvNameGap}{1em}
+\newlength{\cvNameMinSize}
+\setlength{\cvNameMinSize}{16pt}
+\newsavebox{\cvNameBox}
+\newsavebox{\cvNameLineBox}
+\newcommand{\cvMeasureContact}[1]{%
+  \settowidth{\@tempdima}{\ContactFont #1}%
+  \ifdim\@tempdima>\cvContactWidth\global\cvContactWidth\@tempdima\fi}
+\newcommand{\cvHeaderName}[3]{%
+  \sbox{\cvNameLineBox}{{#1#2} \quad{\SuffixFont #3}}%
+  \sbox{\cvNameBox}{{#1#2}{\SuffixFont #3}}%
+  % Space available to the scalable part (name + suffix).
+  \@tempdima\dimexpr\textwidth-\cvContactWidth-\cvNameGap-\wd\cvNameLineBox+\wd\cvNameBox\relax
+  \@tempdimb\wd\cvNameBox
+  \ifdim\@tempdimb>\@tempdima
+    \setlength{\cvNameSize}{\dimexpr\cvNameSize*\@tempdima/\@tempdimb\relax}%
+    \ifdim\cvNameSize<\cvNameMinSize
+      \setlength{\cvNameSize}{\cvNameMinSize}%
+      \vspace*{\cvHeaderOverlap}%
+    \fi
+    \setlength{\cvSuffixSize}{\dimexpr\cvNameSize*29/60\relax}%
+  \fi
+  \rule[-\dp\cvNameLineBox]{\z@}{\dimexpr\ht\cvNameLineBox+\dp\cvNameLineBox\relax}%
+  {#1#2} \quad{\SuffixFont #3}}
+
 % Explicit page break requested for a section ("Start on new page").
 \newcommand{\cvSectionPageBreak}{\par\newpage}
 \makeatother
@@ -740,19 +782,21 @@ function nameFontForLanguage(language: CVLanguageCode): string {
 }
 
 function renderHeader(document: CVDocument, language: CVLanguageCode): string {
-  const contacts = document.header.contacts
-    .filter(hasText)
-    .map((contact) => `  \\item {\\ContactFont ${inlineLatex(contact)}}`)
-    .join("\n");
+  const visibleContacts = document.header.contacts.filter(hasText);
+  const contacts = visibleContacts.map((contact) => `  \\item {\\ContactFont ${inlineLatex(contact)}}`).join("\n");
+  const measureContacts = [
+    "\\global\\cvContactWidth=0pt",
+    ...visibleContacts.map((contact) => `\\cvMeasureContact{${inlineLatex(contact)}}`)
+  ].join("\n");
 
-  return String.raw`\begin{flushright}
+  return String.raw`${measureContacts}
+\begin{flushright}
   \setstretch{0.6}
 ${contacts}
-\end{flushright}\vspace{-45pt}
+\end{flushright}\vspace{-\cvHeaderOverlap}
 
 \begin{flushleft}
-  {${nameFontForLanguage(language)} ${inlineLatex(document.header.name)}} \quad
-  {\SuffixFont ${inlineLatex(document.header.suffix)}}
+  \cvHeaderName{${nameFontForLanguage(language)}}{${inlineLatex(document.header.name)}}{${inlineLatex(document.header.suffix)}}
   \noindent\rule{\textwidth}{0.4pt}
 \end{flushleft}`;
 }

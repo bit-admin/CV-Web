@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { sampleCv } from "../data/sampleCv";
-import { createSampleWorkspace, migrateCvData, migrateDocumentToWorkspace, normalizeDocument, normalizeWorkspace } from "./document";
+import {
+  createSampleWorkspace,
+  exportWorkspaceAsAIJSON,
+  mapAICVToWorkspace,
+  migrateCvData,
+  migrateDocumentToWorkspace,
+  normalizeDocument,
+  normalizeWorkspace
+} from "./document";
 import { escapeLatex, inlineLatex, renderLatex } from "./latex";
 import type { CVBlock, CVDocument, CVLanguageCode, CVWorkspace } from "./types";
 
@@ -329,5 +337,31 @@ describe("LaTeX renderer", () => {
 
     expect(document?.blocks[0]?.pageBreakBefore).toBe(true);
     expect(document?.blocks[1]).not.toHaveProperty("pageBreakBefore");
+  });
+  it("fits the name beside the widest contact instead of a fixed size", () => {
+    const tex = renderLatex(workspaceWithDocument(documentWithBlocks([])));
+
+    expect(tex).toContain("\\cvMeasureContact{ada@example.com}");
+    expect(tex).toContain("\\cvHeaderName{\\NameFont}{Ada Lovelace}{Ph.D.}");
+    expect(tex).toContain("\\vspace{-\\cvHeaderOverlap}");
+  });
+
+  it("keeps hidden sections hidden through JSON export and import", () => {
+    const workspace = workspaceWithDocument(
+      documentWithBlocks([
+        { id: "shown", type: "free-text", title: "Shown", text: "One" },
+        { id: "hidden", type: "free-text", title: "Hidden", text: "Two", hidden: true, pageBreakBefore: true }
+      ])
+    );
+
+    const json = exportWorkspaceAsAIJSON(workspace);
+    const exported = JSON.parse(json).languages.en.blocks;
+    expect(exported[0]).not.toHaveProperty("hidden");
+    expect(exported[1].hidden).toBe(true);
+    expect(exported[1]).not.toHaveProperty("pageBreakBefore");
+
+    const imported = mapAICVToWorkspace(JSON.parse(json));
+    if (typeof imported === "string") throw new Error(imported);
+    expect(imported.languages[0].document.blocks.map((block) => block.hidden)).toEqual([false, true]);
   });
 });
