@@ -1,29 +1,41 @@
+import type { CJKFontGroup } from "./latex";
+
 export type RuntimeAsset = {
   url: string;
   path: string;
 };
 
-export const latexFontAssets: RuntimeAsset[] = [
-  "Sabon/SabonLTStd-Regular.ttf",
-  "Sabon/SabonLTStd-Bold.ttf",
-  "Sabon/SabonLTStd-Italic.ttf",
-  "Sabon/SabonLTStd-BoldItalic.ttf",
-  "Calluna/Calluna-Regular.otf",
-  "Cronos/CronosProLT-Regular.ttf",
-  "Courier/CourierNew-Regular.ttf",
-  "Fangsong/Fangsong.ttf",
-  "Kaiti/Kaiti.ttf",
-  "SimHei/SimHei.ttf",
-  "Simsun/Simsun.ttc",
-  "YuGothic/YuGothB.ttc",
-  "YuGothic/YuGothM.ttc",
-  "YuMincho/yumin.ttf",
-  "YuMincho/yumindb.ttf",
-  "YuMincho/yuminl.ttf"
-].map((path) => ({
+type FontAsset = RuntimeAsset & { group: CJKFontGroup | null };
+
+/** Fonts written to `Fonts/` before each compile; CJK ones only when the CV needs them (see `cjkFontGroups`). */
+const fontAssets: FontAsset[] = (
+  [
+    ["Sabon/SabonLTStd-Regular.ttf", null],
+    ["Sabon/SabonLTStd-Bold.ttf", null],
+    ["Sabon/SabonLTStd-Italic.ttf", null],
+    ["Sabon/SabonLTStd-BoldItalic.ttf", null],
+    ["Calluna/Calluna-Regular.otf", null],
+    ["Cronos/CronosProLT-Regular.ttf", null],
+    ["Courier/CourierNew-Regular.ttf", null],
+    ["Fangsong/Fangsong.ttf", "zh"],
+    ["Kaiti/Kaiti.ttf", "zh"],
+    ["SimHei/SimHei.ttf", "zh"],
+    ["Simsun/Simsun.ttc", "zh"],
+    ["YuGothic/YuGothB.ttc", "ja"],
+    ["YuGothic/YuGothM.ttc", "ja"],
+    ["YuMincho/yumin.ttf", "ja"],
+    ["YuMincho/yumindb.ttf", "ja"],
+    ["YuMincho/yuminl.ttf", "ja"]
+  ] as const
+).map(([path, group]) => ({
   path: `Fonts/${path}`,
-  url: `/fonts/latex/${path}`
+  url: `/fonts/latex/${path}`,
+  group
 }));
+
+export function latexFontAssets(groups: Record<CJKFontGroup, boolean>): RuntimeAsset[] {
+  return fontAssets.filter((asset) => asset.group === null || groups[asset.group]);
+}
 
 export const supplementalTexliveAssets: RuntimeAsset[] = [
   "enumitem.sty",
@@ -104,7 +116,6 @@ export const busyTexAssets = [
   "/core/busytex/busytex_pipeline.js",
   "/core/busytex/busytex.wasm",
   "/core/busytex/busytex_worker.js",
-  "/core/busytex/chunks/manifest.json",
   "/core/busytex/texlive-basic.js",
   "/core/busytex/texlive-basic.data",
   "/core/busytex/texlive-basic.js.providespackage.txt",
@@ -113,9 +124,11 @@ export const busyTexAssets = [
   "/core/busytex/versions.txt"
 ];
 
-export const criticalStaticAssets = [
-  "/",
-  ...busyTexAssets,
-  ...supplementalTexliveAssets.map((asset) => asset.url),
-  ...latexFontAssets.map((asset) => asset.url)
-];
+/** Everything a compile with these font groups needs, as URLs listed in the runtime manifest. */
+export function runtimeAssetUrls(groups: Record<CJKFontGroup, boolean>): string[] {
+  return [
+    ...busyTexAssets,
+    ...supplementalTexliveAssets.map((asset) => asset.url),
+    ...latexFontAssets(groups).map((asset) => asset.url)
+  ];
+}

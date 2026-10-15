@@ -31,11 +31,13 @@ import { Sidebar } from "./components/Sidebar";
 import { IconButton, Kbd, keys, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
-import { renderLatex } from "./lib/latex";
+import { latexFontAssets, runtimeAssetUrls, supplementalTexliveAssets } from "./lib/assets";
+import { cjkFontGroups, renderLatex } from "./lib/latex";
 import { LatexEngineService } from "./lib/latexEngine";
 import { locateSnippet, type LayoutIssue } from "./lib/layoutAnalysis";
 import { loadLibrary } from "./lib/library";
-import { registerServiceWorker, warmCriticalAssets } from "./lib/serviceWorker";
+import { formatDownload, prepareRuntimeAssets, type DownloadProgress } from "./lib/runtimeAssets";
+import { registerServiceWorker } from "./lib/serviceWorker";
 import type { CompileResult, CompileState, CVBlock, CVBlockType, CVDocument, CVLanguageCode, CVWorkspace } from "./lib/types";
 import { useHistory } from "./lib/useHistory";
 import { useLibrary } from "./lib/useLibrary";
@@ -179,6 +181,7 @@ export function App() {
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [compileError, setCompileError] = useState<{ message: string; log: string; tex: string } | null>(null);
   const [compilePending, setCompilePending] = useState(false);
+  const [download, setDownload] = useState<DownloadProgress | null>(null);
   const [autoCompile, setAutoCompile] = useState(() => readSetting(AUTO_COMPILE_KEY, true));
   const [activeModal, setActiveModal] = useState<null | ModalId>(null);
   const [layoutIssues, setLayoutIssues] = useState<LayoutIssue[]>([]);
@@ -217,6 +220,8 @@ export function App() {
   const activeLanguage = workspace.languages.find((language) => language.code === workspace.activeLanguage) ?? workspace.languages[0];
   const cvDocument = activeLanguage.document;
   const tex = useMemo(() => renderLatex(workspace), [workspace]);
+  const { zh: needsZhFonts, ja: needsJaFonts } = cjkFontGroups(workspace);
+  const fontGroups = useMemo(() => ({ zh: needsZhFonts, ja: needsJaFonts }), [needsZhFonts, needsJaFonts]);
   const activeBlock = activeSelection === "header" ? null : cvDocument.blocks.find((block) => block.id === activeSelection) ?? null;
   const activeBlockIndex = activeBlock ? cvDocument.blocks.findIndex((block) => block.id === activeBlock.id) : -1;
   const upToDate = compileResult?.tex === tex;
@@ -374,17 +379,24 @@ export function App() {
     setCompileState((state) => (state === "loading" ? state : "compiling"));
     const source = tex;
     try {
-      const result = await engine.compile(source);
+      // Fetches whatever the engine still lacks: everything on a first visit, CJK fonts when a language needs them.
+      await prepareRuntimeAssets(runtimeAssetUrls(fontGroups), (progress) => {
+        setCompileState("loading");
+        setDownload(progress);
+      });
+      setDownload(null);
+      const result = await engine.compile(source, [...latexFontAssets(fontGroups), ...supplementalTexliveAssets]);
       setCompileResult(result);
       setCompileError(null);
       setCompileState("ready");
     } catch (error) {
+      setDownload(null);
       const log = error instanceof Error ? error.message : String(error);
       const summary = summarizeTexLog(log);
       setCompileError({ message: summary?.message ?? log.split("\n")[0].slice(0, 200), log, tex: source });
       setCompileState("error");
     }
-  }, [tex]);
+  }, [fontGroups, tex]);
 
   const requestCompile = useCallback(() => setCompilePending(true), []);
 
@@ -401,7 +413,6 @@ export function App() {
     async function start() {
       setCompileState("loading");
       await registerServiceWorker();
-      await warmCriticalAssets();
       await compile();
     }
     start().catch((error) => {
@@ -409,8 +420,9 @@ export function App() {
       const log = error instanceof Error ? error.message : String(error);
       setCompileError({ message: log.split("\n")[0], log, tex: "" });
     });
-    return () => engineRef.current?.close();
   }, [compile]);
+
+  useEffect(() => () => engineRef.current?.close(), []);
 
   // Auto-compile shortly after edits stop (not again for a source that just failed).
   useEffect(() => {
@@ -716,6 +728,7 @@ export function App() {
               <span className={`compile-status compile-status--${statusKind}`} aria-live="polite">
                 <span className="status-dot" />
                 {statusLabel}
+                {compileState === "loading" && download && <span aria-hidden="true">{formatDownload(download)}</span>}
               </span>
             </div>
             <div className="toolbar-group">
@@ -747,6 +760,7 @@ export function App() {
           <PdfPreview
             bytes={compileResult?.pdf ?? null}
             compileState={compileState}
+            download={download}
             zoom={zoom}
             showLayoutHints={showLayoutHints}
             activeIssueId={activeIssueId}

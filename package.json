@@ -10,7 +10,7 @@
     "test": "vitest run",
     "assets:split": "node scripts/split-runtime-assets.mjs",
     "assets:download": "texlyre-busytex download-assets ./public/core && npm run assets:split",
-    "deploy": "npm run build && WRANGLER_WRITE_LOGS=false wrangler pages deploy ./dist --project-name cv-web"
+    "deploy": "npm run build && WRANGLER_WRITE_LOGS=false wrangler deploy"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",

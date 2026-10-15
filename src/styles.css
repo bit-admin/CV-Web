@@ -1674,6 +1674,13 @@ input:focus-visible + .toggle-track {
   to { left: 100%; }
 }
 
+.progress-bar--determinate::after {
+  left: 0;
+  width: var(--progress, 0%);
+  animation: none;
+  transition: width 0.2s linear;
+}
+
 .pdf-pages {
   display: flex;
   flex-direction: column;
@@ -1727,6 +1734,12 @@ input:focus-visible + .toggle-track {
 .preview-empty p {
   max-width: 360px;
   color: var(--muted);
+}
+
+.preview-download {
+  color: var(--info);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .preview-rendering {

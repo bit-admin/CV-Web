@@ -9,7 +9,8 @@ import {
   normalizeDocument,
   normalizeWorkspace
 } from "./document";
-import { escapeLatex, inlineLatex, renderLatex } from "./latex";
+import { cjkFontGroups, escapeLatex, inlineLatex, renderLatex } from "./latex";
+import { latexFontAssets } from "./assets";
 import type { CVBlock, CVDocument, CVLanguageCode, CVWorkspace } from "./types";
 
 function documentWithBlocks(blocks: CVBlock[]): CVDocument {
@@ -363,5 +364,34 @@ describe("LaTeX renderer", () => {
     const imported = mapAICVToWorkspace(JSON.parse(json));
     if (typeof imported === "string") throw new Error(imported);
     expect(imported.languages[0].document.blocks.map((block) => block.hidden)).toEqual([false, true]);
+  });
+});
+
+describe("CJK font groups", () => {
+  it("declares and fetches no CJK fonts for an English CV", () => {
+    const workspace = workspaceWithDocument(documentWithBlocks([]));
+    expect(cjkFontGroups(workspace)).toEqual({ zh: false, ja: false });
+    const tex = renderLatex(workspace);
+    expect(tex).not.toContain("Simsun");
+    expect(tex).not.toContain("yumin");
+    expect(latexFontAssets(cjkFontGroups(workspace)).map((asset) => asset.url)).not.toContain("/fonts/latex/Simsun/Simsun.ttc");
+  });
+
+  it("uses the Chinese fonts for CJK text in an English CV", () => {
+    const document = documentWithBlocks([]);
+    document.header.name = "Ada 李";
+    expect(cjkFontGroups(workspaceWithDocument(document))).toEqual({ zh: true, ja: false });
+    expect(renderLatex(workspaceWithDocument(document))).toContain("\\setCJKmainfont{Simsun.ttc}");
+  });
+
+  it("loads only the fonts of the enabled languages", () => {
+    const japanese = workspaceWithDocument(documentWithBlocks([]), "ja");
+    expect(cjkFontGroups(japanese)).toEqual({ zh: false, ja: true });
+    const tex = renderLatex(japanese);
+    expect(tex).toContain("\\setCJKfamilyfont{jpmincho}");
+    expect(tex).not.toContain("\\setCJKmainfont");
+    expect(latexFontAssets({ zh: false, ja: true }).every((asset) => !asset.url.includes("Simsun"))).toBe(true);
+
+    expect(cjkFontGroups(workspaceWithDocument(documentWithBlocks([]), "zh"))).toEqual({ zh: true, ja: false });
   });
 });

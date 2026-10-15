@@ -14,6 +14,24 @@ import type {
 
 const LANGUAGE_RENDER_ORDER: CVLanguageCode[] = ["en", "zh", "ja"];
 
+/** CJK font sets the template loads; each is tens of megabytes, so only the ones a workspace needs are declared and fetched. */
+export type CJKFontGroup = "zh" | "ja";
+
+const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
+
+/**
+ * The Chinese fonts are the CJK main font, so they are needed for a Chinese CV and for any CJK text in an
+ * English one; the Japanese environment selects its own families.
+ */
+export function cjkFontGroups(workspace: CVWorkspace): Record<CJKFontGroup, boolean> {
+  const enabled = (code: CVLanguageCode) => workspace.languages.find((language) => language.code === code && language.enabled);
+  const english = enabled("en");
+  return {
+    zh: Boolean(enabled("zh")) || (english !== undefined && CJK_TEXT.test(JSON.stringify(english.document))),
+    ja: Boolean(enabled("ja"))
+  };
+}
+
 /** Page geometry of the template, shared with the PDF layout analysis. */
 export const PAGE_LAYOUT = {
   pageWidthCm: 21,
@@ -367,7 +385,84 @@ function renderBlocks(blocks: CVBlock[], language: CVLanguageCode): string {
     .join("\n\n");
 }
 
-function renderFixedStylePreamble(): string {
+/** Chinese fonts (~50 MB), also used for CJK text in an English CV. */
+const ZH_FONT_SETUP = String.raw`\setCJKmainfont{Simsun.ttc}[
+  Path=./Fonts/Simsun/,
+  BoldFont=SimHei.ttf,
+  BoldFeatures={Path=./Fonts/SimHei/},
+  ItalicFont=Kaiti.ttf,
+  ItalicFeatures={Path=./Fonts/Kaiti/},
+  BoldItalicFont=SimHei.ttf,
+  BoldItalicFeatures={Path=./Fonts/SimHei/}
+]
+
+\setCJKsansfont{SimHei.ttf}[
+  Path=./Fonts/SimHei/
+]
+
+\setCJKmonofont{Fangsong.ttf}[
+  Path=./Fonts/Fangsong/
+]
+
+\setCJKfamilyfont{zhsong}{Simsun.ttc}[
+  Path=./Fonts/Simsun/,
+  BoldFont=SimHei.ttf,
+  BoldFeatures={Path=./Fonts/SimHei/},
+  ItalicFont=Kaiti.ttf,
+  ItalicFeatures={Path=./Fonts/Kaiti/},
+  BoldItalicFont=SimHei.ttf,
+  BoldItalicFeatures={Path=./Fonts/SimHei/}
+]
+
+\setCJKfamilyfont{zhhei}{SimHei.ttf}[
+  Path=./Fonts/SimHei/
+]
+
+\setCJKfamilyfont{zhkai}{Kaiti.ttf}[
+  Path=./Fonts/Kaiti/
+]
+
+\setCJKfamilyfont{zhtitle}{Simsun.ttc}[
+  Path=./Fonts/Simsun/,
+  FakeBold=2.8
+]
+
+\setCJKfamilyfont{zhfangsong}{Fangsong.ttf}[
+  Path=./Fonts/Fangsong/,
+  BoldFont=SimHei.ttf,
+  BoldFeatures={Path=./Fonts/SimHei/},
+  ItalicFont=Kaiti.ttf,
+  ItalicFeatures={Path=./Fonts/Kaiti/}
+]
+
+`;
+
+/** Japanese fonts (~68 MB). */
+const JA_FONT_SETUP = String.raw`\setCJKfamilyfont{jpmincho}{yumin.ttf}[
+  Path=./Fonts/YuMincho/,
+  BoldFont=YuGothB.ttc,
+  BoldFeatures={Path=./Fonts/YuGothic/},
+  ItalicFont=yuminl.ttf,
+  ItalicFeatures={Path=./Fonts/YuMincho/},
+  BoldItalicFont=YuGothB.ttc,
+  BoldItalicFeatures={Path=./Fonts/YuGothic/}
+]
+
+\setCJKfamilyfont{jpgothic}{YuGothB.ttc}[
+  Path=./Fonts/YuGothic/
+]
+
+\setCJKfamilyfont{jptitle}{yumindb.ttf}[
+  Path=./Fonts/YuMincho/
+]
+
+\setCJKfamilyfont{jpmono}{YuGothM.ttc}[
+  Path=./Fonts/YuGothic/
+]
+
+`;
+
+function renderFixedStylePreamble(fonts: Record<CJKFontGroup, boolean>): string {
   return String.raw`\documentclass[a4paper, 10pt]{article}
 
 \usepackage[top=${PAGE_LAYOUT.topCm}cm, bottom=${PAGE_LAYOUT.bottomCm}cm, left=${PAGE_LAYOUT.leftCm}cm, right=${PAGE_LAYOUT.rightCm}cm, marginparwidth=1.75cm]{geometry}
@@ -429,84 +524,13 @@ function renderFixedStylePreamble(): string {
   UprightFont=*-Regular
 ]
 
-\setCJKmainfont{Simsun.ttc}[
-  Path=./Fonts/Simsun/,
-  BoldFont=SimHei.ttf,
-  BoldFeatures={Path=./Fonts/SimHei/},
-  ItalicFont=Kaiti.ttf,
-  ItalicFeatures={Path=./Fonts/Kaiti/},
-  BoldItalicFont=SimHei.ttf,
-  BoldItalicFeatures={Path=./Fonts/SimHei/}
-]
-
-\setCJKsansfont{SimHei.ttf}[
-  Path=./Fonts/SimHei/
-]
-
-\setCJKmonofont{Fangsong.ttf}[
-  Path=./Fonts/Fangsong/
-]
-
-\setCJKfamilyfont{zhsong}{Simsun.ttc}[
-  Path=./Fonts/Simsun/,
-  BoldFont=SimHei.ttf,
-  BoldFeatures={Path=./Fonts/SimHei/},
-  ItalicFont=Kaiti.ttf,
-  ItalicFeatures={Path=./Fonts/Kaiti/},
-  BoldItalicFont=SimHei.ttf,
-  BoldItalicFeatures={Path=./Fonts/SimHei/}
-]
-
-\setCJKfamilyfont{zhhei}{SimHei.ttf}[
-  Path=./Fonts/SimHei/
-]
-
-\setCJKfamilyfont{zhkai}{Kaiti.ttf}[
-  Path=./Fonts/Kaiti/
-]
-
-\setCJKfamilyfont{zhtitle}{Simsun.ttc}[
-  Path=./Fonts/Simsun/,
-  FakeBold=2.8
-]
-
-\setCJKfamilyfont{zhfangsong}{Fangsong.ttf}[
-  Path=./Fonts/Fangsong/,
-  BoldFont=SimHei.ttf,
-  BoldFeatures={Path=./Fonts/SimHei/},
-  ItalicFont=Kaiti.ttf,
-  ItalicFeatures={Path=./Fonts/Kaiti/}
-]
-
-\newcommand{\zhSong}{\CJKfamily{zhsong}}
+${fonts.zh ? ZH_FONT_SETUP : ""}\newcommand{\zhSong}{\CJKfamily{zhsong}}
 \newcommand{\zhHei}{\CJKfamily{zhhei}}
 \newcommand{\zhKai}{\CJKfamily{zhkai}}
 \newcommand{\zhTitle}{\CJKfamily{zhtitle}}
 \newcommand{\zhFangsong}{\CJKfamily{zhfangsong}}
 
-\setCJKfamilyfont{jpmincho}{yumin.ttf}[
-  Path=./Fonts/YuMincho/,
-  BoldFont=YuGothB.ttc,
-  BoldFeatures={Path=./Fonts/YuGothic/},
-  ItalicFont=yuminl.ttf,
-  ItalicFeatures={Path=./Fonts/YuMincho/},
-  BoldItalicFont=YuGothB.ttc,
-  BoldItalicFeatures={Path=./Fonts/YuGothic/}
-]
-
-\setCJKfamilyfont{jpgothic}{YuGothB.ttc}[
-  Path=./Fonts/YuGothic/
-]
-
-\setCJKfamilyfont{jptitle}{yumindb.ttf}[
-  Path=./Fonts/YuMincho/
-]
-
-\setCJKfamilyfont{jpmono}{YuGothM.ttc}[
-  Path=./Fonts/YuGothic/
-]
-
-\newcommand{\jpMincho}{\CJKfamily{jpmincho}}
+${fonts.ja ? JA_FONT_SETUP : ""}\newcommand{\jpMincho}{\CJKfamily{jpmincho}}
 \newcommand{\jpGothic}{\CJKfamily{jpgothic}}
 \newcommand{\jpTitle}{\CJKfamily{jptitle}}
 \newcommand{\jpMono}{\CJKfamily{jpmono}}
@@ -841,7 +865,7 @@ export function renderLatex(workspace: CVWorkspace): string {
 % Copyright (c) 2026 bit-admin
 % Licensed under MIT
 %------------------------------------
-${renderFixedStylePreamble()}
+${renderFixedStylePreamble(cjkFontGroups(workspace))}
 
 \begin{document}
 

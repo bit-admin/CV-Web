@@ -17,18 +17,20 @@ npm install
 npm run dev       # http://127.0.0.1:5173
 npm run test      # run unit tests
 npm run build     # type-check + production build
-npm run deploy    # build and deploy dist/ to Cloudflare Pages with Wrangler
+npm run deploy    # build and deploy dist/ to Cloudflare Workers (static assets) with Wrangler
 ```
 
 ## Browser LaTeX Runtime
 
 The browser runtime is fully hosted from `public/`:
 
-- `public/core/busytex` — BusyTeX JavaScript, worker, package index, and chunked WASM/basic TeX Live data.
+- `public/core/busytex` — BusyTeX JavaScript, worker, and package index.
 - `public/core/texmf` — supplemental `fontspec`, `xcolor`, `ctex`, `xeCJK`, `zhnumber`, and layout package files needed by the generated template.
 - `public/fonts/latex` — Latin, Chinese, and Japanese fonts written into BusyTeX before compile.
+- `public/core/packs` — the WASM, TeX Live data and large fonts, gzipped and split into parts.
+- `public/core/runtime-manifest.json` — every runtime file with its size, content hash and parts.
 
-Cloudflare Pages has a 25 MiB per-file asset limit. The oversized BusyTeX files are therefore split into `public/core/busytex/chunks/*` by:
+Cloudflare limits static assets to 25 MiB per file and does not compress `.data`, `.ttc` or split files, so after adding or redownloading runtime files run:
 
 ```bash
 npm run assets:split
@@ -40,11 +42,11 @@ If you redownload BusyTeX assets, run:
 npm run assets:download
 ```
 
-This downloads the stock BusyTeX assets, keeps the checked-in `fontspec`/`xcolor` supplemental files, prunes the unused recommended/extra packs, and chunks the remaining oversized files. The app still requests the original BusyTeX URLs such as `/core/busytex/texlive-basic.data`; `public/service-worker.js` reconstructs those responses from the hosted chunks and caches them for offline use.
+This downloads the stock BusyTeX assets, keeps the checked-in `fontspec`/`xcolor` supplemental files, prunes the unused recommended/extra packs, and packs the large binaries. On first use the app downloads what the CV needs (the Chinese and Japanese fonts only when those languages are used), showing progress, and keeps it in Cache Storage under content-hashed keys, so later visits and deploys that do not change the engine download nothing. The app still requests the original URLs such as `/core/busytex/texlive-basic.data`; `public/service-worker.js` answers them from that cache.
 
-## Deploy to Cloudflare Pages
+## Deploy to Cloudflare Workers
 
-The project is pre-configured for Cloudflare Pages via `wrangler.jsonc` (output directory: `./dist`).
+The project deploys as a static-assets-only Worker configured in `wrangler.jsonc` (assets directory: `./dist`, single-page-application fallback). No Worker script runs, so requests are served directly from the asset store.
 
 ### Wrangler CLI
 
@@ -57,23 +59,22 @@ The project is pre-configured for Cloudflare Pages via `wrangler.jsonc` (output 
    npm run deploy
    ```
 
-`npm run deploy` uses Wrangler 4 and deploys `./dist` to the `cv-web` Pages project. If you rename the Pages project, update the `--project-name` value in `package.json`.
+`npm run deploy` runs `wrangler deploy`, which deploys `./dist` to the `cv-web` Worker. Attach a custom domain in Cloudflare Dashboard → **Workers & Pages** → `cv-web` → **Settings** → **Domains & Routes**.
 
 ### Git Integration
 
 1. Push this repo to GitHub/GitLab.
-2. In Cloudflare Dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
+2. In Cloudflare Dashboard → **Workers & Pages** → **Create** → **Import a repository** (Workers Builds).
 3. Select the repo and configure:
    - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-   - **Node.js version**: set via `NODE_VERSION` env var if needed (20+)
-4. Every push to the configured branch will trigger a deploy. Preview deployments are created automatically for PRs.
+   - **Deploy command**: `npx wrangler deploy`
+4. Every push to the configured branch will trigger a deploy.
 
 ## Deployment Notes
 
-`public/_headers` configures caching and security headers that Cloudflare Pages serves automatically:
+`public/_headers` configures caching and security headers that Cloudflare serves with the static assets:
 
-- BusyTeX assets, chunk files, supplemental TeX files, and fonts are cached immutably for 1 year.
+- BusyTeX assets, packed parts, supplemental TeX files, and fonts are cached immutably for 1 year; the runtime manifest is always revalidated.
 - Global `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
 
 The BusyTeX dependency is `AGPL-3.0-or-later`; the license text is in `public/licenses/BusyTeX-AGPL-3.0.txt`. Supplemental TeX Live files remain under the TeX Live/LPPL license text in `public/licenses/TeXLive-LPPL-1.3c.tex`.

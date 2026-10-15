@@ -1,190 +1,90 @@
-const CACHE_NAME = "cv-forge-v22";
-const CHUNK_MANIFEST_URL = "/core/busytex/chunks/manifest.json";
-const CORE_ASSETS = [
-  "/",
-  "/core/busytex/busytex.js",
-  "/core/busytex/busytex_pipeline.js",
-  "/core/busytex/busytex_worker.js",
-  "/core/busytex/texlive-basic.js",
-  "/core/busytex/texlive-basic.js.providespackage.txt",
-  "/core/busytex/texlive-basic.profile",
-  "/core/busytex/texlive-basic.txt",
-  "/core/busytex/versions.txt",
-  CHUNK_MANIFEST_URL,
-  "/core/texmf/enumitem.sty",
-  "/core/texmf/ragged2e.sty",
-  "/core/texmf/setspace.sty",
-  "/core/texmf/tabularx.sty",
-  "/core/texmf/titlesec.sty",
-  "/core/texmf/ctex-c5size.clo",
-  "/core/texmf/ctex-cs4size.clo",
-  "/core/texmf/ctex-engine-aptex.def",
-  "/core/texmf/ctex-engine-luatex.def",
-  "/core/texmf/ctex-engine-pdftex.def",
-  "/core/texmf/ctex-engine-uptex.def",
-  "/core/texmf/ctex-engine-xetex.def",
-  "/core/texmf/ctex-fontset-adobe.def",
-  "/core/texmf/ctex-fontset-fandol.def",
-  "/core/texmf/ctex-fontset-founder.def",
-  "/core/texmf/ctex-fontset-mac.def",
-  "/core/texmf/ctex-fontset-macnew.def",
-  "/core/texmf/ctex-fontset-macold.def",
-  "/core/texmf/ctex-fontset-ubuntu.def",
-  "/core/texmf/ctex-fontset-windows.def",
-  "/core/texmf/ctex-heading-article.def",
-  "/core/texmf/ctex-heading-beamer.def",
-  "/core/texmf/ctex-heading-book.def",
-  "/core/texmf/ctex-heading-report.def",
-  "/core/texmf/ctex-name-gbk.cfg",
-  "/core/texmf/ctex-name-utf8.cfg",
-  "/core/texmf/ctex-scheme-chinese-article.def",
-  "/core/texmf/ctex-scheme-chinese-beamer.def",
-  "/core/texmf/ctex-scheme-chinese-book.def",
-  "/core/texmf/ctex-scheme-chinese-report.def",
-  "/core/texmf/ctex-scheme-chinese.def",
-  "/core/texmf/ctex-scheme-plain-article.def",
-  "/core/texmf/ctex-scheme-plain-beamer.def",
-  "/core/texmf/ctex-scheme-plain-book.def",
-  "/core/texmf/ctex-scheme-plain-report.def",
-  "/core/texmf/ctex-scheme-plain.def",
-  "/core/texmf/ctex.cfg",
-  "/core/texmf/ctex.sty",
-  "/core/texmf/ctexart.cls",
-  "/core/texmf/ctexbackend.cfg",
-  "/core/texmf/ctexbeamer.cls",
-  "/core/texmf/ctexbook.cls",
-  "/core/texmf/ctexcap.sty",
-  "/core/texmf/ctexheading.sty",
-  "/core/texmf/ctexhook.sty",
-  "/core/texmf/ctexopts.cfg",
-  "/core/texmf/ctexpatch.sty",
-  "/core/texmf/ctexrep.cls",
-  "/core/texmf/ctexsize.sty",
-  "/core/texmf/ctexspa.def",
-  "/core/texmf/fontspec.cfg",
-  "/core/texmf/fontspec-luatex.sty",
-  "/core/texmf/fontspec-xetex.sty",
-  "/core/texmf/fontspec.lua",
-  "/core/texmf/fontspec.sty",
-  "/core/texmf/svgnam.def",
-  "/core/texmf/x11nam.def",
-  "/core/texmf/xcolor-2022-06-12.sty",
-  "/core/texmf/xcolor.sty",
-  "/core/texmf/xeCJK-listings.sty",
-  "/core/texmf/xeCJK.cfg",
-  "/core/texmf/xeCJK.sty",
-  "/core/texmf/xeCJKfntef.sty",
-  "/core/texmf/xunicode-addon.sty",
-  "/core/texmf/zhnumber-big5.cfg",
-  "/core/texmf/zhnumber-gbk.cfg",
-  "/core/texmf/zhnumber-utf8.cfg",
-  "/core/texmf/zhnumber.sty",
-  "/fonts/latex/Sabon/SabonLTStd-Regular.ttf",
-  "/fonts/latex/Sabon/SabonLTStd-Bold.ttf",
-  "/fonts/latex/Sabon/SabonLTStd-Italic.ttf",
-  "/fonts/latex/Sabon/SabonLTStd-BoldItalic.ttf",
-  "/fonts/latex/Calluna/Calluna-Regular.otf",
-  "/fonts/latex/Cronos/CronosProLT-Regular.ttf",
-  "/fonts/latex/Courier/CourierNew-Regular.ttf",
-  "/fonts/latex/Fangsong/Fangsong.ttf",
-  "/fonts/latex/Kaiti/Kaiti.ttf",
-  "/fonts/latex/SimHei/SimHei.ttf",
-  "/fonts/latex/Simsun/Simsun.ttc",
-  "/fonts/latex/YuGothic/YuGothB.ttc",
-  "/fonts/latex/YuGothic/YuGothM.ttc",
-  "/fonts/latex/YuMincho/yumin.ttf",
-  "/fonts/latex/YuMincho/yumindb.ttf",
-  "/fonts/latex/YuMincho/yuminl.ttf"
-];
+// Bump SHELL_CACHE on each deploy so the app shell updates. Runtime files (TeX engine, TeX files, fonts) live in
+// RUNTIME_CACHE under versioned keys written by src/lib/runtimeAssets.ts, so a deploy does not re-download them.
+// Keep RUNTIME_CACHE, RUNTIME_MANIFEST_URL and the `<url>?v=<hash>` key format in sync with that module.
+const SHELL_CACHE = "cv-forge-shell-v23";
+const RUNTIME_CACHE = "cv-forge-runtime";
+const RUNTIME_MANIFEST_URL = "/core/runtime-manifest.json";
+const RUNTIME_PREFIXES = ["/core/", "/fonts/"];
 
-let chunkManifestPromise = null;
+let manifestPromise = null;
 
-async function cacheUrls(cache, urls, concurrency = 8) {
-  for (let index = 0; index < urls.length; index += concurrency) {
-    await Promise.all(urls.slice(index, index + concurrency).map((url) => cache.add(url)));
+async function fetchManifest() {
+  const cache = await caches.open(RUNTIME_CACHE);
+  try {
+    const response = await fetch(RUNTIME_MANIFEST_URL, { cache: "no-cache" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await cache.put(RUNTIME_MANIFEST_URL, response.clone());
+    return response;
+  } catch (error) {
+    const cached = await cache.match(RUNTIME_MANIFEST_URL);
+    if (cached) return cached;
+    throw error;
   }
 }
 
-async function loadChunkManifest() {
-  if (!chunkManifestPromise) {
-    chunkManifestPromise = caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(CHUNK_MANIFEST_URL);
-      if (cached) {
-        return cached.json();
-      }
-
-      const response = await fetch(CHUNK_MANIFEST_URL);
-      if (!response.ok) {
-        throw new Error(`Unable to load ${CHUNK_MANIFEST_URL}`);
-      }
-
-      await cache.put(CHUNK_MANIFEST_URL, response.clone());
-      return response.json();
-    });
+function loadManifest() {
+  if (!manifestPromise) {
+    manifestPromise = fetchManifest()
+      .then((response) => response.json())
+      .catch((error) => {
+        manifestPromise = null;
+        throw error;
+      });
   }
-
-  return chunkManifestPromise;
+  return manifestPromise;
 }
 
-async function cacheChunkAssets(cache) {
-  const manifest = await loadChunkManifest();
-  const chunks = Object.values(manifest).flat();
-  await cacheUrls(cache, chunks, 4);
+// The page fetches the manifest before every download; refresh our copy at the same time.
+async function manifestResponse() {
+  const response = await fetchManifest();
+  manifestPromise = response.clone().json();
+  return response;
 }
 
-function chunkedAssetContentType(pathname) {
-  if (pathname.endsWith(".wasm")) {
-    return "application/wasm";
-  }
-
-  if (pathname.endsWith(".data")) {
-    return "application/octet-stream";
-  }
-
+function contentType(pathname) {
+  if (pathname.endsWith(".wasm")) return "application/wasm";
+  if (pathname.endsWith(".js")) return "text/javascript";
   return "application/octet-stream";
 }
 
-async function chunkedAssetResponse(pathname) {
-  const manifest = await loadChunkManifest();
-  const chunks = manifest[pathname];
-  if (!chunks) {
-    return null;
+async function fetchOk(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Unable to fetch ${url} (HTTP ${response.status})`);
+  return response;
+}
+
+/** Serves a runtime file from the cache, downloading it first if the page has not. */
+async function runtimeResponse(request, pathname) {
+  const manifest = await loadManifest().catch(() => null);
+  const file = manifest?.files[pathname];
+  if (!file) return fetch(request);
+
+  const key = `${pathname}?v=${file.hash}`;
+  const cache = await caches.open(RUNTIME_CACHE);
+  const cached = await cache.match(key);
+  if (cached) return cached;
+
+  let body;
+  if (file.parts) {
+    const parts = [];
+    for (const part of file.parts) parts.push(await (await fetchOk(part.url)).blob());
+    body = await new Response(new Blob(parts).stream().pipeThrough(new DecompressionStream("gzip"))).blob();
+  } else {
+    body = await (await fetchOk(key)).blob();
   }
-
-  const cache = await caches.open(CACHE_NAME);
-  const parts = [];
-
-  for (const chunk of chunks) {
-    let response = await cache.match(chunk);
-    if (!response) {
-      response = await fetch(chunk);
-      if (response.ok) {
-        await cache.put(chunk, response.clone());
-      }
-    }
-
-    if (!response.ok) {
-      return response;
-    }
-
-    parts.push(await response.arrayBuffer());
-  }
-
-  return new Response(new Blob(parts, { type: chunkedAssetContentType(pathname) }), {
-    headers: {
-      "Content-Type": chunkedAssetContentType(pathname),
-      "Cache-Control": "public, max-age=31556952, immutable"
-    }
+  const response = new Response(body, {
+    headers: { "Content-Type": contentType(pathname), "Content-Length": String(body.size) }
   });
+  await cache.put(key, response.clone());
+  return response;
 }
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      await cacheUrls(cache, CORE_ASSETS);
-      await cacheChunkAssets(cache);
-      await self.skipWaiting();
-    })
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.add("/"))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -192,7 +92,13 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("cv-forge-") && key !== SHELL_CACHE && key !== RUNTIME_CACHE)
+            .map((key) => caches.delete(key))
+        )
+      )
       .then(() => self.clients.claim())
   );
 });
@@ -208,22 +114,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.pathname === RUNTIME_MANIFEST_URL) {
+    event.respondWith(manifestResponse());
+    return;
+  }
+
+  if (RUNTIME_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) {
+    // Versioned URLs and packed parts are downloads by the page itself: pass them through uncached.
+    if (!url.search && !url.pathname.startsWith("/core/packs/")) {
+      event.respondWith(runtimeResponse(request, url.pathname));
+    }
+    return;
+  }
+
   event.respondWith(
-    caches.match(request).then(async (cached) => {
+    caches.open(SHELL_CACHE).then(async (cache) => {
+      const cached = await cache.match(request);
       if (cached && request.cache !== "reload" && request.cache !== "no-store") {
         return cached;
       }
 
-      const chunked = await chunkedAssetResponse(url.pathname);
-      if (chunked) {
-        return chunked;
+      const response = await fetch(request);
+      if (response.ok) {
+        await cache.put(request, response.clone());
       }
-
-      return fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      });
+      return response;
     })
   );
 });

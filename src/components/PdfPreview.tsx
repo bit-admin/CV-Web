@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { FileText } from "lucide-react";
 import type { CompileState } from "../lib/types";
 import { analyzeLayout, type LayoutIssue, type PdfPageText } from "../lib/layoutAnalysis";
 import { PAGE_LAYOUT } from "../lib/latex";
+import { formatDownload, type DownloadProgress } from "../lib/runtimeAssets";
 import { extractPageText } from "../lib/pdfText";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
@@ -17,6 +18,8 @@ export type PageInfo = { current: number; total: number };
 type PdfPreviewProps = {
   bytes: Uint8Array | null;
   compileState: CompileState;
+  /** Engine download in progress, if any. */
+  download: DownloadProgress | null;
   zoom: Zoom;
   showLayoutHints: boolean;
   activeIssueId: string | null;
@@ -54,6 +57,7 @@ function issueMarker(issue: LayoutIssue, onSelect: (issue: LayoutIssue) => void)
 export function PdfPreview({
   bytes,
   compileState,
+  download,
   zoom,
   showLayoutHints,
   activeIssueId,
@@ -248,16 +252,33 @@ export function PdfPreview({
       className={`preview-viewport${busy && bytes ? " preview-viewport--stale" : ""}${showLayoutHints ? "" : " preview-viewport--hide-hints"}`}
       data-preview-viewport
     >
-      {busy && <div className="progress-bar" role="progressbar" aria-label="Compiling" />}
+      {busy &&
+        (download ? (
+          <div
+            className="progress-bar progress-bar--determinate"
+            role="progressbar"
+            aria-label="Downloading the TeX engine"
+            aria-valuemin={0}
+            aria-valuemax={download.total}
+            aria-valuenow={download.loaded}
+            aria-valuetext={formatDownload(download)}
+            style={{ "--progress": `${(download.loaded / Math.max(download.total, 1)) * 100}%` } as CSSProperties}
+          />
+        ) : (
+          <div className="progress-bar" role="progressbar" aria-label="Compiling" />
+        ))}
       {!bytes && (
         <div className="preview-empty">
           <FileText size={36} strokeWidth={1.25} />
           {busy ? (
             <>
-              <strong>{compileState === "loading" ? "Preparing the TeX engine" : "Compiling your CV"}</strong>
+              <strong>
+                {download ? "Downloading the TeX engine" : compileState === "loading" ? "Preparing the TeX engine" : "Compiling your CV"}
+              </strong>
+              {download && <span className="preview-download">{formatDownload(download)}</span>}
               <p>
-                Everything runs in your browser. The first compile downloads the engine and fonts and can take a minute;
-                later ones take a few seconds.
+                Everything runs in your browser. The engine and fonts download once and are kept for offline use; later
+                compiles take a few seconds.
               </p>
             </>
           ) : (

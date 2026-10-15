@@ -1,30 +1,24 @@
 import { BusyTexRunner, XeLatex, type FileInput } from "texlyre-busytex";
-import { latexFontAssets, supplementalTexliveAssets, type RuntimeAsset } from "./assets";
+import type { RuntimeAsset } from "./assets";
+import { readRuntimeAsset } from "./runtimeAssets";
 import type { CompileResult } from "./types";
 
 const DATA_PACKAGES = ["/core/busytex/texlive-basic.js"];
 
-async function fetchBytes(asset: RuntimeAsset): Promise<Uint8Array> {
-  const response = await fetch(asset.url, { cache: "reload" });
-  if (!response.ok) {
-    throw new Error(`Missing runtime asset ${asset.url}`);
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
+const fileContents = new Map<string, Promise<Uint8Array>>();
 
-let additionalFilesPromise: Promise<FileInput[]> | null = null;
-
-async function loadAdditionalFiles(): Promise<FileInput[]> {
-  if (!additionalFilesPromise) {
-    additionalFilesPromise = Promise.all(
-      [...latexFontAssets, ...supplementalTexliveAssets].map(async (asset) => ({
-        path: asset.path,
-        content: await fetchBytes(asset)
-      }))
-    );
-  }
-
-  return additionalFilesPromise;
+function loadAdditionalFiles(assets: RuntimeAsset[]): Promise<FileInput[]> {
+  return Promise.all(
+    assets.map(async (asset) => {
+      let content = fileContents.get(asset.url);
+      if (!content) {
+        content = readRuntimeAsset(asset.url);
+        content.catch(() => fileContents.delete(asset.url));
+        fileContents.set(asset.url, content);
+      }
+      return { path: asset.path, content: await content };
+    })
+  );
 }
 
 export class LatexEngineService {
@@ -47,7 +41,8 @@ export class LatexEngineService {
     this.xelatex = new XeLatex(runner);
   }
 
-  async compile(tex: string): Promise<CompileResult> {
+  /** Compiles `tex`, writing `additionalAssets` (fonts, supplemental TeX files) into the engine's file system first. */
+  async compile(tex: string, additionalAssets: RuntimeAsset[]): Promise<CompileResult> {
     const started = performance.now();
     await this.load();
 
@@ -61,7 +56,7 @@ export class LatexEngineService {
       rerun: true,
       verbose: "silent",
       dataPackagesJs: DATA_PACKAGES,
-      additionalFiles: await loadAdditionalFiles()
+      additionalFiles: await loadAdditionalFiles(additionalAssets)
     });
 
     if (!result.success || !result.pdf) {

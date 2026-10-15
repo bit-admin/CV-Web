@@ -2,6 +2,12 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
 
+/core/runtime-manifest.json
+  Cache-Control: no-cache
+
+/core/packs/*
+  Cache-Control: public, max-age=31556952, immutable
+
 /core/busytex/*
   Cache-Control: public, max-age=31556952, immutable
 

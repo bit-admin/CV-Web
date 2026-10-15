@@ -1,5 +1,9 @@
 {
   "name": "cv-web",
-  "pages_build_output_dir": "./dist",
-  "compatibility_date": "2026-05-19"
+  "compatibility_date": "2026-05-19",
+  // Static assets only, no Worker script: requests are served directly and are free.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
 }
