@@ -1,5 +1,6 @@
 import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import { MobileBlocker } from "./components/MobileBlocker";
 import "./styles.css";
 
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
       <MobileBlocker />
     ) : (
       <Suspense>
-        <App />
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </Suspense>
     )}
   </StrictMode>

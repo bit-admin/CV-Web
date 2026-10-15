@@ -18,6 +18,8 @@ import {
 import { createSampleWorkspace } from "../lib/document";
 import { contentKey, createEmptyWorkspace, describeChanges, loadWorkingCopy, type CVVersion } from "../lib/library";
 import type { CVLibrary } from "../lib/useLibrary";
+import { useConfirm } from "./ConfirmDialog";
+import { Kbd, MOD } from "./ui";
 import type { CVWorkspace } from "../lib/types";
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
@@ -83,6 +85,7 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
   const [renamingCV, setRenamingCV] = useState(false);
   const [renamingVersion, setRenamingVersion] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const confirm = useConfirm();
 
   const selected = index.cvs.find((cv) => cv.id === selectedId) ?? active;
   const isActive = selected.id === active.id;
@@ -180,10 +183,15 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
                 aria-label="Delete CV"
                 title={index.cvs.length <= 1 ? "The only CV cannot be deleted" : "Delete CV and its versions"}
                 disabled={index.cvs.length <= 1}
-                onClick={() => {
-                  if (window.confirm(`Delete “${selected.name}” and all ${versions?.length ?? 0} of its versions? This cannot be undone.`)) {
-                    void library.deleteCV(selected.id);
-                  }
+                onClick={async () => {
+                  const count = versions?.length ?? 0;
+                  const ok = await confirm({
+                    title: `Delete “${selected.name}”?`,
+                    message: `The CV and ${count === 1 ? "its version" : `all ${count} of its versions`} are removed from this browser. This cannot be undone.`,
+                    confirmLabel: "Delete CV",
+                    tone: "danger"
+                  });
+                  if (ok) void library.deleteCV(selected.id);
                 }}
               >
                 <Trash2 size={14} />
@@ -269,8 +277,14 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
                     className="icon-button icon-button--danger"
                     aria-label="Delete version"
                     title="Delete version"
-                    onClick={() => {
-                      if (window.confirm(`Delete version “${version.label}”?`)) void library.deleteVersion(version);
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Delete version “${version.label}”?`,
+                        message: "The current content of the CV is not affected. This cannot be undone.",
+                        confirmLabel: "Delete version",
+                        tone: "danger"
+                      });
+                      if (ok) void library.deleteVersion(version);
                     }}
                   >
                     <Trash2 size={14} />
@@ -282,7 +296,7 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
           <p className="library-hint">
             Automatic versions are saved before your first edit of a visit, every 10 minutes while you edit, and before
             imports, resets and restores. The latest 20 are kept; named versions are never removed. Press{" "}
-            <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> to save a version at any time.
+            <Kbd>{`${MOD}S`}</Kbd> to save a version at any time.
           </p>
         </section>
       </div>
