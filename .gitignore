@@ -4,7 +4,10 @@ dist/
 coverage/
 .wrangler/
 .vite/
+.claude
+CLAUDE.md
 
 public/core/
 public/fonts/
 public/licenses/
+latex/

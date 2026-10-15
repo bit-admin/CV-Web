@@ -58,17 +58,24 @@ const blockTemplates: Array<{ type: CVBlockType; label: string }> = [
 
 const AI_PROMPT_TEMPLATE = `You are a CV/resume data generator for a browser-based CV builder called CV Forge.
 
-Your task: given the user's raw CV information below, generate a complete, well-structured CV in the JSON format described. If you think you need more information from the user (e.g. missing dates, unclear job titles, incomplete education details), ask before generating — it is better to ask than to guess.
+Your task: given the user's raw CV information below, generate a complete, well-structured CV in the JSON format described. If you need more information from the user (e.g. missing dates, unclear job titles, incomplete education details), ask before generating — do not guess or fill in facts. Leave a field empty or omit an optional item rather than inventing a date, title, location, employer, degree, or publication.
 
 ## Output Format
 
-Wrap the final JSON in a markdown code block like this:
+Reply in this exact order:
+
+1. Generate the complete CV data wrapped in a single markdown code block. Put only valid JSON inside the fence — no commentary, no trailing commas:
 
 \`\`\`json
 { ... }
 \`\`\`
 
-Do not include any other text after the code block — just the JSON.
+2. Immediately after the code block, tell the user how to copy it into CV Forge. Use wording like:
+   "You can copy the JSON above using the copy button in the top-right corner of the code block, then paste it into CV Forge (step 2 of the AI wizard)."
+
+3. If anything is still uncertain, or if you inferred something non-factual (section grouping, heading wording, translation choices), briefly mention it so the user can verify or correct it. If nothing was inferred, omit this section. Do not use this section as a license to invent missing facts.
+
+Do not put the copy instruction or assumptions inside the JSON. Do not add a second JSON block.
 
 ## JSON Structure
 
@@ -347,13 +354,12 @@ Below is a full example showing all block types. This is what a complete output 
 }
 \`\`\`
 
+---
+
 ## User's CV Information
 
 [Paste your CV details, career summary, or any information here. You can be informal — bullet points, rough notes, or even a LinkedIn URL are all fine.]
-
----
-
-Generate the CV JSON now. Remember: wrap it in a \`\`\`json code block. If you need more details, ask first.`;
+`;
 
 const blockTypeLabels: Record<CVBlockType, string> = {
   credential: "Credential",
@@ -520,7 +526,8 @@ function AiWizardModal({
             Copy the prompt below and paste it into ChatGPT, Claude, or any AI
             assistant. Add your CV details where indicated. The AI may ask
             follow-up questions if it needs more info — answer them, then copy
-            the JSON from the code block it produces.
+            the JSON from its code block (copy button, top-right) and paste it
+            in the next step.
           </p>
           <pre className="wizard-prompt-block">{AI_PROMPT_TEMPLATE}</pre>
           <div className="wizard-actions">
