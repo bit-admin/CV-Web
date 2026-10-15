@@ -30,7 +30,7 @@ export function DownloadCard({ download }: { download: DownloadProgress }) {
   const fraction = download.total > 0 ? Math.min(1, download.loaded / download.total) : 0;
   const onlyFonts = download.groups.every((group) => group.group !== "engine");
   const title = onlyFonts
-    ? `Downloading ${download.groups.map((group) => GROUP_LABELS[group.group] ?? group.group).join(" and ").toLowerCase()}`
+    ? `Downloading ${download.groups.map((group) => GROUP_LABELS[group.group] ?? group.group).join(" and ")}`
     : "Downloading the TeX engine";
   const timeLeft = formatTimeLeft(download.total - download.loaded, rate);
   const active = download.groups.find((group) => group.loaded < group.total)?.group;

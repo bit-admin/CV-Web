@@ -289,6 +289,12 @@ export function PdfPreview({
           )}
         </div>
       )}
+      {bytes && download && (
+        // Fonts for a newly enabled language download over the current PDF.
+        <div className="preview-download-overlay">
+          <DownloadCard download={download} />
+        </div>
+      )}
       {bytes && !painted && !error && <p className="preview-rendering">Rendering preview…</p>}
       {error && <p className="preview-error">{error}</p>}
       <div ref={pagesRef} className="pdf-pages" />

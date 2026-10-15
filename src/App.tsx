@@ -556,7 +556,9 @@ export function App() {
   const statusKind = compileState === "error" ? "error" : busy ? "busy" : !compileResult ? "idle" : upToDate ? "ok" : "stale";
   const statusLabel =
     compileState === "loading"
-      ? "Preparing engine…"
+      ? download?.groups.every((group) => group.group !== "engine")
+        ? "Downloading fonts…"
+        : "Preparing engine…"
       : compileState === "compiling"
         ? "Compiling…"
         : compileState === "error"

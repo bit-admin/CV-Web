@@ -1736,6 +1736,21 @@ input:focus-visible + .toggle-track {
   color: var(--muted);
 }
 
+.preview-download-overlay {
+  position: sticky;
+  z-index: 5;
+  top: 16px;
+  display: flex;
+  height: 0;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+}
+
+.preview-download-overlay .download-card {
+  box-shadow: var(--shadow-pop);
+}
+
 .download-card {
   width: min(380px, 100%);
   padding: 18px 20px 16px;
