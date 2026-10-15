@@ -9,6 +9,7 @@ import {
   EyeOff,
   FileText,
   Github,
+  Library,
   Plus,
   RefreshCcw,
   RotateCcw,
@@ -21,11 +22,13 @@ import {
 } from "lucide-react";
 import { PdfPreview } from "./components/PdfPreview";
 import { LayoutPanel } from "./components/LayoutPanel";
+import { LibraryModal } from "./components/LibraryModal";
 import { locateSnippet, type LayoutIssue } from "./lib/layoutAnalysis";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock, exportWorkspaceAsAIJSON, mapAICVToWorkspace } from "./lib/document";
 import { renderLatex } from "./lib/latex";
 import { LatexEngineService } from "./lib/latexEngine";
-import { clearStoredDocument, loadStoredWorkspace, saveStoredWorkspace } from "./lib/storage";
+import { loadLibrary } from "./lib/library";
+import { useLibrary } from "./lib/useLibrary";
 import { registerServiceWorker, warmCriticalAssets } from "./lib/serviceWorker";
 import type {
   CompileResult,
@@ -44,6 +47,7 @@ import type {
 } from "./lib/types";
 
 type Selection = "header" | string;
+type ModalId = "library" | "ai" | "format" | "license";
 
 const blockTemplates: Array<{ type: CVBlockType; label: string }> = [
   { type: "credential", label: "Credential" },
@@ -1392,16 +1396,38 @@ function statusText(state: CompileState, result: CompileResult | null): string {
 export function App() {
   const engineRef = useRef<LatexEngineService | null>(null);
   const bootedRef = useRef(false);
-  const [workspace, setWorkspace] = useState<CVWorkspace>(() => loadStoredWorkspace() ?? cloneSample());
+  const [boot] = useState(loadLibrary);
+  const [workspace, setWorkspace] = useState<CVWorkspace>(boot.workspace);
   const [activeSelection, setActiveSelection] = useState<Selection>("header");
   const [compileState, setCompileState] = useState<CompileState>("idle");
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [compileLog, setCompileLog] = useState("");
-  const [activeModal, setActiveModal] = useState<null | "ai" | "format" | "license">(null);
+  const [activeModal, setActiveModal] = useState<null | ModalId>(null);
   const [layoutIssues, setLayoutIssues] = useState<LayoutIssue[]>([]);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [showLayoutHints, setShowLayoutHints] = useState(true);
+  const [compilePending, setCompilePending] = useState(false);
   const closeModal = useCallback(() => setActiveModal(null), []);
+
+  // Another CV or a restored version replaced the workspace: start from its
+  // header and recompile once the engine is free.
+  const handleSwitched = useCallback(() => {
+    setActiveSelection("header");
+    setCompilePending(true);
+  }, []);
+  const library = useLibrary(boot.index, workspace, setWorkspace, handleSwitched);
+  const { saveNamedVersion, saveVersion } = library;
+
+  useEffect(() => {
+    const handleSave = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveNamedVersion("");
+      }
+    };
+    document.addEventListener("keydown", handleSave);
+    return () => document.removeEventListener("keydown", handleSave);
+  }, [saveNamedVersion]);
 
   useEffect(() => {
     if (!activeModal) return;
@@ -1412,13 +1438,21 @@ export function App() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [activeModal, closeModal]);
 
-  const modalMeta: Record<"ai" | "format" | "license", { title: string; content: ReactNode }> = {
+  const modalMeta: Record<ModalId, { title: string; content: ReactNode; wide?: boolean }> = {
+    library: {
+      title: "My CVs & Versions",
+      wide: true,
+      content: <LibraryModal library={library} workspace={workspace} />
+    },
     ai: {
       title: "Generate CV with AI",
       content: (
         <AiWizardModal
           workspace={workspace}
-          onApply={(ws) => setWorkspace(ws)}
+          onApply={(ws) => {
+            void saveVersion("Before AI import", "auto");
+            setWorkspace(ws);
+          }}
           onClose={closeModal}
         />
       ),
@@ -1479,10 +1513,6 @@ export function App() {
   const tex = useMemo(() => renderLatex(workspace), [workspace]);
   const activeBlock = activeSelection === "header" ? null : cvDocument.blocks.find((block) => block.id === activeSelection) ?? null;
   const activeBlockIndex = activeBlock ? cvDocument.blocks.findIndex((block) => block.id === activeBlock.id) : -1;
-
-  useEffect(() => {
-    saveStoredWorkspace(workspace);
-  }, [workspace]);
 
   useEffect(() => {
     if (activeSelection !== "header" && !cvDocument.blocks.some((block) => block.id === activeSelection)) {
@@ -1651,6 +1681,13 @@ export function App() {
   }, [tex]);
 
   useEffect(() => {
+    if (compilePending && compileState !== "compiling" && compileState !== "loading") {
+      setCompilePending(false);
+      void compile();
+    }
+  }, [compile, compilePending, compileState]);
+
+  useEffect(() => {
     if (bootedRef.current) {
       return;
     }
@@ -1678,6 +1715,17 @@ export function App() {
           <div className="brand-lockup">
             <h1>CV Forge</h1>
             <nav className="header-actions" aria-label="Quick actions">
+              <button
+                className="header-action-btn header-action-btn--library"
+                type="button"
+                onClick={() => setActiveModal("library")}
+                aria-label={`My CVs and versions (open: ${library.active.name})`}
+                title="My CVs and versions"
+              >
+                <Library size={14} />
+                <span>{library.active.name}</span>
+                <ChevronDown size={12} />
+              </button>
               <button
                 className="header-action-btn"
                 type="button"
@@ -1781,10 +1829,10 @@ export function App() {
             type="button"
             className="ghost-button"
             onClick={() => {
-              if (!window.confirm("Reset to the sample CV? This deletes everything you have entered in all languages. To keep a copy, use “Export Current CV” in “Generate CV with AI” first.")) {
+              if (!window.confirm(`Replace “${library.active.name}” with the sample CV? The current content is kept as a version in “My CVs”, so you can restore it.`)) {
                 return;
               }
-              clearStoredDocument();
+              void saveVersion("Before reset", "auto");
               setWorkspace(cloneSample());
               setActiveSelection("header");
               setCompileResult(null);
@@ -1823,6 +1871,10 @@ export function App() {
         />
       </section>
 
+      <div className="toast-region" role="status" aria-live="polite">
+        {library.notice && <div className={`toast toast--${library.notice.tone}`}>{library.notice.text}</div>}
+      </div>
+
       {activeModal && (
         <div
           className="modal-overlay"
@@ -1831,7 +1883,10 @@ export function App() {
           aria-modal="true"
           aria-label={modalMeta[activeModal].title}
         >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`modal-content${modalMeta[activeModal].wide ? " modal-content--wide" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h2>{modalMeta[activeModal].title}</h2>
               <button
