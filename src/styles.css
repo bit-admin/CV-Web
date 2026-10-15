@@ -2183,6 +2183,85 @@ input:focus-visible + .toggle-track {
   to { opacity: 1; }
 }
 
+/* ── Confirm dialog ─────────────────────────────────────── */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 20, 24, 0.32);
+  animation: fade-in 0.08s ease-out;
+}
+
+.confirm-dialog {
+  width: min(420px, calc(100vw - 48px));
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  box-shadow: 0 24px 60px rgba(17, 20, 24, 0.22);
+  animation: pop-in 0.1s ease-out;
+}
+
+.confirm-body {
+  display: flex;
+  gap: 12px;
+  padding: 20px 20px 16px;
+}
+
+.confirm-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--danger-line);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.confirm-body h2 {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.confirm-body p {
+  margin-top: 6px;
+  color: var(--text-2);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control);
+  border: 1px solid var(--danger);
+  padding: 0 12px;
+  color: #fff;
+  background: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.danger-button:hover {
+  background: #92190f;
+}
+
 /* ── AI wizard ──────────────────────────────────────────── */
 
 .wizard-step-indicator {

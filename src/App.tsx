@@ -22,6 +22,7 @@ import {
   X
 } from "lucide-react";
 import { AiWizardModal } from "./components/AiWizard";
+import { useConfirm } from "./components/ConfirmDialog";
 import { BlockEditor, HeaderEditor } from "./components/BlockEditor";
 import { LayoutDock } from "./components/LayoutPanel";
 import { LibraryModal } from "./components/LibraryModal";
@@ -191,6 +192,7 @@ export function App() {
   const [editorWidth, setEditorWidth] = useState(() => readSetting(EDITOR_WIDTH_KEY, 0));
   const [toast, setToast] = useState<Toast | null>(null);
   const closeModal = useCallback(() => setActiveModal(null), []);
+  const confirm = useConfirm();
 
   const history = useHistory(workspace, setWorkspace);
   const { reset: resetHistory } = history;
@@ -565,10 +567,13 @@ export function App() {
     license: { title: "License", content: <LicenseContent /> }
   };
 
-  const resetToSample = () => {
-    if (!window.confirm(`Replace “${library.active.name}” with the sample CV? The current content is kept as a version in “My CVs”, so you can restore it.`)) {
-      return;
-    }
+  const resetToSample = async () => {
+    const ok = await confirm({
+      title: `Replace “${library.active.name}” with the sample CV?`,
+      message: "The current content is kept as a version in “My CVs”, so you can restore it.",
+      confirmLabel: "Replace with sample"
+    });
+    if (!ok) return;
     void saveVersion("Before reset", "auto");
     history.checkpoint();
     setWorkspace(createSampleWorkspace());
@@ -617,7 +622,7 @@ export function App() {
           <MenuButton className="topbar-button topbar-button--icon" align="end" label={<Ellipsis size={16} aria-label="More" />}>
             {(close) => (
               <>
-                <button type="button" role="menuitem" className="menu-item menu-item--compact" onClick={() => { close(); resetToSample(); }}>
+                <button type="button" role="menuitem" className="menu-item menu-item--compact" onClick={() => { close(); void resetToSample(); }}>
                   <RotateCcw size={14} />
                   <span><strong>Replace with sample CV</strong></span>
                 </button>
