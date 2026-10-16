@@ -1,6 +1,6 @@
 # CV Forge
 
-A privacy-first CV/resume builder that compiles LaTeX to PDF entirely in your browser using BusyTeX XeLaTeX WebAssembly. No backend — all data stays in localStorage.
+A privacy-first CV/resume builder that compiles LaTeX to PDF entirely in your browser using BusyTeX XeLaTeX WebAssembly. Your CVs are stored in your browser; optional sync keeps them the same across devices, end-to-end encrypted.
 
 ## Editor
 
@@ -11,11 +11,21 @@ A privacy-first CV/resume builder that compiles LaTeX to PDF entirely in your br
 - **Inline math** — `$O(n \log n)$` or `$\alpha \le 0.05$` is typeset as LaTeX math. As in Pandoc, a `$` only opens a formula when followed by a non-space and only closes one when preceded by a non-space and not followed by a digit, so prices like `$5–$10` stay text. A backslash escapes a marker (`\$`, `\_`, `\*`, `` \` ``, `\\`). Formulas are limited to a vetted set of math commands; one that would not compile prints as typed and is flagged under the field.
 - **Undo/redo**, drag-to-reorder sections, collapsible entries, a resizable editor/preview split, and named versions of each CV (Ctrl/⌘+S).
 
+## Sync (optional)
+
+Off by default: everything stays in the browser (localStorage for working copies, IndexedDB for versions). Turning sync on (click “Saved locally” in the top bar) creates a **sync code**, which another browser enters to join.
+
+- **No account.** Three values are derived from the code with HKDF: the sync space id (in the URL), an access token (the server stores only its SHA-256 hash) and an AES-GCM key. Every CV and version is gzipped and encrypted in the browser, with its item id as associated data; the server only sees ciphertext. Losing the code loses the synced copy, never the local one.
+- **Storage.** One SQLite-backed Durable Object per sync code (`worker/`), which works on the Workers Free plan. Each CV (name + working copy) and each version is one row; every write bumps a per-space counter (`seq`) so clients pull only what changed since the last seq they saw. Writes are compare-and-swap on each item's seq.
+- **Conflicts.** A CV edited on two devices keeps the copy that reached the server first; the other device saves its own edits as a version named “Edits replaced by another device”. An edit wins over a deletion.
+- **Free-plan budget.** One request per sync (push and pull together). Browsers sync when the page opens or comes back into view, about 15 s after edits stop (at most 90 s after the first), and on “Sync now”, and skip the request when nothing changed. Quotas: 1.5 MB per item, 20 MB per sync code. A sync code unused for 180 days is deleted by an alarm; deletions are remembered for 90 days.
+
 ## Development
 
 ```bash
 npm install
 npm run dev       # http://127.0.0.1:5173
+npm run dev:api   # sync API on :8787 (wrangler dev; needs wrangler.jsonc and a build in dist/), proxied by npm run dev
 npm run test      # run unit tests
 npm run build     # type-check + production build
 npm run deploy    # build and deploy dist/ to Cloudflare Workers (static assets) with Wrangler
@@ -44,7 +54,7 @@ On first use the app downloads what the CV needs (the Chinese and Japanese fonts
 
 ## Deploy to Cloudflare Workers
 
-The project deploys as a static-assets-only Worker (assets directory: `./dist`, single-page-application fallback). No Worker script runs, so requests are served directly from the asset store. `wrangler.jsonc` is gitignored so it can hold your own domain; create it from the example:
+The project deploys as a Worker with static assets (assets directory: `./dist`, single-page-application fallback). The Worker script (`worker/index.ts`) only runs for `/api/*`, the optional sync API (`run_worker_first`); every other request is served directly from the asset store without running it. Sync uses a SQLite-backed Durable Object class, `SyncSpace`, created by the `migrations` entry on first deploy. `wrangler.jsonc` is gitignored so it can hold your own domain; create it from the example:
 
 ```bash
 cp wrangler.example.jsonc wrangler.jsonc   # then set routes to your domain, or remove them

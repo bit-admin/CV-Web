@@ -55,7 +55,7 @@ export function createEmptyWorkspace(): CVWorkspace {
  * JSON with sorted keys and without `hidden: false`, so the same content
  * compares equal whether or not it went through normalization.
  */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   return JSON.stringify(value, (key, item: unknown) => {
     if (key === "hidden" && item === false) return undefined;
     if (item && typeof item === "object" && !Array.isArray(item)) {
@@ -196,6 +196,8 @@ export function loadLibrary(): { index: LibraryIndex; workspace: CVWorkspace } {
 
 export type VersionStore = {
   list(cvId: string): Promise<CVVersion[]>;
+  /** Every version of every CV. */
+  all(): Promise<CVVersion[]>;
   put(version: CVVersion): Promise<void>;
   remove(ids: string[]): Promise<void>;
   /** False when versions only last until the page is closed. */
@@ -239,6 +241,10 @@ function idbVersionStore(): VersionStore {
       const versions = await promisify(store.index("cvId").getAll(cvId) as IDBRequest<CVVersion[]>);
       return versions.sort((a, b) => b.createdAt - a.createdAt);
     },
+    async all() {
+      const store = (await open()).transaction(VERSION_STORE).objectStore(VERSION_STORE);
+      return promisify(store.getAll() as IDBRequest<CVVersion[]>);
+    },
     async put(version) {
       const transaction = (await open()).transaction(VERSION_STORE, "readwrite");
       transaction.objectStore(VERSION_STORE).put(version);
@@ -260,6 +266,9 @@ export function memoryVersionStore(): VersionStore {
     persistent: false,
     async list(cvId) {
       return [...versions.values()].filter((v) => v.cvId === cvId).sort((a, b) => b.createdAt - a.createdAt);
+    },
+    async all() {
+      return [...versions.values()].map((version) => structuredClone(version));
     },
     async put(version) {
       versions.set(version.id, structuredClone(version));

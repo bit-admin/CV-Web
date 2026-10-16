@@ -28,6 +28,7 @@ import { LayoutDock } from "./components/LayoutPanel";
 import { LibraryModal } from "./components/LibraryModal";
 import { PdfPreview, scrollPreviewToPage, type PageInfo, type PreviewFocus, type Zoom } from "./components/PdfPreview";
 import { Sidebar } from "./components/Sidebar";
+import { SyncPanel, syncLabel } from "./components/SyncPanel";
 import { IconButton, Kbd, keys, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
@@ -43,9 +44,10 @@ import { registerServiceWorker } from "./lib/serviceWorker";
 import type { CompileResult, CompileState, CVBlock, CVBlockType, CVDocument, CVLanguageCode, CVTemplateId, CVWorkspace } from "./lib/types";
 import { useHistory } from "./lib/useHistory";
 import { useLibrary } from "./lib/useLibrary";
+import { useSync } from "./lib/useSync";
 
 type Selection = "header" | string;
-type ModalId = "library" | "ai" | "help" | "license" | "template";
+type ModalId = "library" | "ai" | "help" | "license" | "template" | "sync";
 type Toast = { text: string; action?: { label: string; run: () => void } };
 
 const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -224,6 +226,8 @@ export function App() {
   }, []);
   const library = useLibrary(boot.index, workspace, replaceFromLibrary, handleSwitched);
   const { saveNamedVersion, saveVersion } = library;
+  const sync = useSync(library.syncLocal, [workspace, library.index, library.revision], library.notify);
+  const syncState = syncLabel(sync);
 
   const activeLanguage = workspace.languages.find((language) => language.code === workspace.activeLanguage) ?? workspace.languages[0];
   const cvDocument = activeLanguage.document;
@@ -592,7 +596,12 @@ export function App() {
                 : "Preview out of date";
 
   const modalMeta: Record<ModalId, { title: string; content: ReactNode; wide?: boolean }> = {
-    library: { title: "My CVs & Versions", wide: true, content: <LibraryModal library={library} workspace={workspace} /> },
+    library: {
+      title: "My CVs & Versions",
+      wide: true,
+      content: <LibraryModal library={library} workspace={workspace} syncing={sync.enabled} onOpenSync={() => setActiveModal("sync")} />
+    },
+    sync: { title: "Sync across devices", content: <SyncPanel sync={sync} /> },
     ai: {
       title: "Generate CV with AI",
       content: (
@@ -664,9 +673,9 @@ export function App() {
             <span className="cv-switcher-name">{library.active.name}</span>
             <ChevronDown size={13} />
           </button>
-          <span className="save-state" title="Every change is saved in this browser">
-            Saved locally
-          </span>
+          <button type="button" className={`save-state save-state--${syncState.tone}`} title={syncState.title} onClick={() => setActiveModal("sync")}>
+            {syncState.text}
+          </button>
         </div>
         <div className="topbar-group">
           <IconButton variant="ghost" label={`Undo (${MOD}Z)`} disabled={!history.canUndo} onClick={() => history.undo()}>

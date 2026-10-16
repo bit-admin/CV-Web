@@ -19,6 +19,7 @@ import {
   type CVVersionKind,
   type LibraryIndex
 } from "./library";
+import { cvItemId, versionItemId, type CVPayload, type LocalChange, type SyncLocal, type SyncPayload } from "./sync";
 import type { CVWorkspace } from "./types";
 
 /** Edits within this long of the latest version do not trigger an automatic one. */
@@ -64,6 +65,9 @@ export function useLibrary(
   const sessionStart = useRef<{ id: string; workspace: CVWorkspace } | null>({ id: activeId, workspace });
 
   const active: CVMeta = index.cvs.find((cv) => cv.id === activeId) ?? index.cvs[0];
+  // The latest values, for sync, which runs across renders.
+  const latest = useRef({ index, activeId, workspace });
+  latest.current = { index, activeId, workspace };
 
   const notify = useCallback((text: string, tone: "info" | "error" = "info") => setNotice({ text, tone }), []);
   useEffect(() => {
@@ -158,12 +162,13 @@ export function useLibrary(
   );
 
   const switchTo = useCallback(
-    (id: string, next: CVWorkspace) => {
+    (id: string, next: CVWorkspace, remember = true) => {
       saved.current = { id, key: contentKey(next) };
       sessionStart.current = { id, workspace: next };
+      latest.current = { ...latest.current, activeId: id, workspace: next };
       setActiveId(id);
       setWorkspace(next);
-      changeIndex((draft) => void (draft.activeId = id));
+      if (remember) changeIndex((draft) => void (draft.activeId = id));
       onSwitched();
     },
     [changeIndex, onSwitched, setWorkspace]
@@ -236,6 +241,88 @@ export function useLibrary(
     },
     [activeId, changeIndex, index.cvs, openCV, store]
   );
+
+  // ── Sync ────────────────────────────────────────────────
+
+  const syncLocal = useMemo((): SyncLocal => ({
+    async snapshot() {
+      const items = new Map<string, SyncPayload>();
+      const { index: current, activeId: openId, workspace: openWorkspace } = latest.current;
+      for (const meta of (readIndex() ?? current).cvs) {
+        const copy = meta.id === openId ? openWorkspace : loadWorkingCopy(meta.id);
+        if (!copy) continue;
+        items.set(cvItemId(meta.id), { type: "cv", name: meta.name, createdAt: meta.createdAt, updatedAt: meta.updatedAt, workspace: copy });
+      }
+      for (const version of await store.all()) {
+        const { id, cvId, label, kind, createdAt, workspace: snapshot } = version;
+        items.set(versionItemId(id), { type: "version", cvId, label, kind, createdAt, workspace: snapshot });
+      }
+      return items;
+    },
+
+    async apply(changes: LocalChange[]) {
+      const refused = new Set<string>();
+      const cvId = (id: string) => id.slice("cv:".length);
+      const upserts = changes.filter((change) => change.id.startsWith("cv:") && change.payload);
+      const deletions = changes.filter((change) => change.id.startsWith("cv:") && !change.payload);
+      let next = readIndex() ?? latest.current.index;
+      let openId = latest.current.activeId;
+
+      for (const { id, payload } of upserts) {
+        const { name, createdAt, updatedAt, workspace: copy } = payload as CVPayload;
+        if (!saveWorkingCopy(cvId(id), copy)) throw new Error("Browser storage is full.");
+        next = updateIndex(next, (draft) => {
+          const meta = draft.cvs.find((cv) => cv.id === cvId(id));
+          if (meta) Object.assign(meta, { name, createdAt, updatedAt });
+          else draft.cvs.push({ id: cvId(id), name, createdAt, updatedAt });
+        });
+        if (cvId(id) === openId) switchTo(openId, copy, false);
+      }
+
+      for (const { id, payload } of changes.filter((change) => change.id.startsWith("v:"))) {
+        if (payload?.type === "version") {
+          const { cvId: owner, label, kind, createdAt, workspace: snapshot } = payload;
+          await store.put({ id: id.slice("v:".length), cvId: owner, label, kind, createdAt, workspace: snapshot });
+        } else {
+          await store.remove([id.slice("v:".length)]);
+        }
+      }
+
+      // Deletions last, so CVs that arrived in the same sync can take the place of a deleted open one.
+      for (const { id } of deletions) {
+        const remaining = next.cvs.filter((cv) => cv.id !== cvId(id));
+        if (!next.cvs.some((cv) => cv.id === cvId(id))) continue;
+        const fallback = remaining.find((cv) => loadWorkingCopy(cv.id));
+        if (!fallback) {
+          refused.add(id);
+          continue;
+        }
+        if (cvId(id) === openId) {
+          openId = fallback.id;
+          switchTo(fallback.id, loadWorkingCopy(fallback.id)!, false);
+        }
+        next = updateIndex(next, (draft) => {
+          draft.cvs = draft.cvs.filter((cv) => cv.id !== cvId(id));
+        });
+        removeWorkingCopy(cvId(id));
+      }
+
+      setIndex(next);
+      setRevision((value) => value + 1);
+      return refused;
+    },
+
+    async keepConflictCopy(id: string, local: CVPayload) {
+      await store.put({
+        id: createId("v"),
+        cvId: id,
+        label: "Edits replaced by another device",
+        kind: "manual",
+        createdAt: Date.now(),
+        workspace: structuredClone(local.workspace)
+      });
+    }
+  }), [store, switchTo]);
 
   const restoreVersion = useCallback(
     async (version: CVVersion) => {
@@ -348,6 +435,7 @@ export function useLibrary(
     renameVersion,
     deleteVersion,
     exportBackup,
-    importBackup
+    importBackup,
+    syncLocal
   };
 }
