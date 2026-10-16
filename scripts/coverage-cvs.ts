@@ -41,6 +41,8 @@ function mathSample(name: string, spec: { args: number; text?: boolean; optional
  * commands and delimiters. Fonts are loaded per size, so all three sizes are needed. */
 function mathCoverageText(): string {
   const formulas = [...MATH_COMMANDS].map(([name, spec]) => mathSample(name, spec));
+  // Punctuation and digits come from the math italic and roman fonts at each size, Greek too.
+  formulas.push("10^{0.5}, x_{i,j}; \\alpha \\boldsymbol{\\alpha}");
   formulas.push("a\\,b\\;c\\:d\\!e\\ f \\{ \\} \\| \\$ \\% \\& \\# \\_", "\\left( x \\right) \\left/ x \\right/ \\left[ x \\right] \\left< x \\right> \\left. x \\right|");
   const lines: string[] = [];
   for (const formula of formulas) {

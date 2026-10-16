@@ -21,6 +21,11 @@ const jobs = JSON.parse(readFileSync(jobsPath, "utf8"));
 
 // Font files the engine opens while scanning font directories but rarely uses; dropped unless a compile asks.
 const OPTIONAL_FONT = /\/fonts\/(type1|opentype|truetype)\//;
+// The Computer Modern and AMS math fonts, metrics and Type 1 outlines, at every size. Kept whole because which ones
+// a CV needs depends on its formulas: the coverage CVs cannot reach every glyph in every font and size (a `.` or `,`
+// in a superscript comes from cmmi7, for one), and xdvipdfmx cannot write the PDF without the outline it uses.
+const MATH_FONTS =
+  /\/fonts\/(tfm|type1)\/public\/(cm|amsfonts\/(cm|cmextra|symbols|euler))\/(cmr|cmmi|cmsy|cmex|cmbx|cmmib|cmbsy|msam|msbm|eufm|eufb)\d+\.(tfm|pfb)$/;
 // Opened on every run but not needed for this template's output. (ICU's data is needed: XeTeX reads font names
 // through ICU converters when the engine starts.)
 const NOT_NEEDED = [/\/fonts\/map\/pdftex\/updmap\/pdftex\.map$/];
@@ -156,12 +161,13 @@ async function trace() {
 
   // Hide (not delete) candidates so they can be restored when a compile asks for them.
   for (const file of all) {
+    if (MATH_FONTS.test(file)) continue;
     if (!touched.has(file) || NOT_NEEDED.some((pattern) => pattern.test(file))) FS.unlink(file);
   }
   FS.mkdir("/hidden");
   const hidden = new Map();
   for (const file of touched) {
-    if (OPTIONAL_FONT.test(file) && FS.analyzePath(file).exists) {
+    if (OPTIONAL_FONT.test(file) && !MATH_FONTS.test(file) && FS.analyzePath(file).exists) {
       const parked = `/hidden/${hidden.size}`;
       FS.rename(file, parked);
       hidden.set(file, parked);
