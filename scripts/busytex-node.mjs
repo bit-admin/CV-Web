@@ -73,6 +73,9 @@ async function startEngine(onFS = () => {}) {
   const files = jobs.files.map((file) => ({ path: file.path, contents: new Uint8Array(readFileSync(file.source)) }));
   const compile = async (tex) => {
     console.log = quiet;
+    // The engine exits without closing its files and the module is reused, so each compile leaks open streams until
+    // Emscripten's limit (4096) makes later compiles fail to open fonts. Close whatever a compile left open.
+    const openBefore = new Set(Module.FS.streams.flatMap((stream) => (stream ? [stream.fd] : [])));
     try {
       return await pipeline.compile(
         [{ path: "main.tex", contents: tex }, ...files],
@@ -86,6 +89,9 @@ async function startEngine(onFS = () => {}) {
         [packageJs]
       );
     } finally {
+      for (const stream of Module.FS.streams) {
+        if (stream && !openBefore.has(stream.fd)) Module.FS.close(stream);
+      }
       console.log = log;
     }
   };

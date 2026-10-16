@@ -218,8 +218,9 @@ quad qquad not limits nolimits displaystyle textstyle scriptstyle
 big Big bigg Bigg bigl bigr Bigl Bigr biggl biggr Biggl Biggr
 `;
 
-/** Commands with their number of required arguments; `text` arguments are typeset as text. */
-const MATH_COMMANDS = new Map<string, { args: number; text?: boolean; optional?: boolean }>([
+/** Commands with their number of required arguments; `text` arguments are typeset as text. Exported for
+ * scripts/coverage-cvs.ts, which typesets every one so the trimmed TeX Live package holds the files they need. */
+export const MATH_COMMANDS = new Map<string, { args: number; text?: boolean; optional?: boolean }>([
   ...SYMBOLS.trim()
     .split(/\s+/)
     .map((name) => [name, { args: 0 }] as const),
@@ -245,7 +246,7 @@ const MATH_COMMANDS = new Map<string, { args: number; text?: boolean; optional?:
 const MATH_SYMBOL_COMMANDS = new Set([",", ";", ":", "!", " ", "{", "}", "|", "$", "%", "&", "#", "_"]);
 const TEXT_SYMBOL_COMMANDS = new Set([" ", "{", "}", "$", "%", "&", "#", "_"]);
 const DELIMITERS = new Set(["(", ")", "[", "]", "|", ".", "/", "<", ">"]);
-const DELIMITER_COMMANDS = new Set([
+export const DELIMITER_COMMANDS = new Set([
   "{", "}", "|", "langle", "rangle", "lfloor", "rfloor", "lceil", "rceil", "lvert", "rvert", "lVert", "rVert", "vert", "Vert",
   "uparrow", "downarrow", "Uparrow", "Downarrow", "backslash"
 ]);
