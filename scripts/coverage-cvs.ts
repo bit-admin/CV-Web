@@ -1,10 +1,11 @@
-// CVs that exercise every part of the LaTeX template, used by build-runtime-assets.mjs to find the TeX Live files a
+// CVs that exercise every part of every LaTeX template, used by build-runtime-assets.mjs to find the TeX Live files a
 // compile needs and to check that the trimmed package produces identical PDFs. Extend this when the template
 // gains a feature these do not reach.
 import { createEmptyBlock, createSampleWorkspace } from "../src/lib/document";
 import { renderLatex } from "../src/lib/latex";
+import { TEMPLATES } from "../src/lib/templates";
 import { DELIMITER_COMMANDS, MATH_COMMANDS, validateMath } from "../src/lib/markup";
-import type { CVBlockType, CVLanguageCode, CVWorkspace } from "../src/lib/types";
+import type { CVBlockType, CVLanguageCode, CVTemplateId, CVWorkspace } from "../src/lib/types";
 
 const BLOCK_TYPES: CVBlockType[] = [
   "credential",
@@ -25,6 +26,9 @@ const STRESS_MATH =
 /** Inline markup, every LaTeX special character, typographic and accented characters, CJK text, and a formula. */
 const STRESS_TEXT =
   `**Bold** _italic_ \`code_x\` A&B 50% \\$5 #1 {x} ~ ^ \\\\ é ü ß ñ — – “quoted” ‘s’ … € £ © ° ± × → • 李明 東京大学 カタカナ ${STRESS_MATH}`;
+
+/** Email and web contacts become \\href links; these include the characters escaped in a link target. */
+const STRESS_LINKS = ["first.last+cv@example.co.uk", "https://example.com/a_b~c?q=50%&r=1#top", "github.com/ada_l"];
 
 /** One use of a whitelisted math command (see `validateMath`). */
 function mathSample(name: string, spec: { args: number; text?: boolean; optional?: boolean }): string {
@@ -74,7 +78,7 @@ function stressWorkspace(): CVWorkspace {
   const workspace = withLanguages(["en", "zh", "ja"]);
   for (const language of workspace.languages) {
     language.document.header.name = `Maximilian Alexander Wolfeschlegelsteinhausen-Bergerdorff ${STRESS_MATH}`;
-    language.document.header.contacts.push(STRESS_TEXT);
+    language.document.header.contacts.push(...STRESS_LINKS, STRESS_TEXT);
     BLOCK_TYPES.forEach((type, index) => {
       const block = fillStrings(createEmptyBlock(type));
       block.title = `Stress ${type}`;
@@ -89,12 +93,20 @@ function stressWorkspace(): CVWorkspace {
   return workspace;
 }
 
+function withTemplate(workspace: CVWorkspace, template: CVTemplateId): CVWorkspace {
+  workspace.template = template;
+  return workspace;
+}
+
+/** Every coverage CV in every template, as `<template>-<cv>`. */
 export function coverageCvs(): Record<string, string> {
-  return {
-    en: renderLatex(withLanguages(["en"])),
-    zh: renderLatex(withLanguages(["zh"])),
-    ja: renderLatex(withLanguages(["ja"])),
-    all: renderLatex(withLanguages(["en", "zh", "ja"])),
-    stress: renderLatex(stressWorkspace())
-  };
+  const cvs: Record<string, string> = {};
+  for (const { id } of TEMPLATES) {
+    cvs[`${id}-en`] = renderLatex(withTemplate(withLanguages(["en"]), id));
+    cvs[`${id}-zh`] = renderLatex(withTemplate(withLanguages(["zh"]), id));
+    cvs[`${id}-ja`] = renderLatex(withTemplate(withLanguages(["ja"]), id));
+    cvs[`${id}-all`] = renderLatex(withTemplate(withLanguages(["en", "zh", "ja"]), id));
+    cvs[`${id}-stress`] = renderLatex(withTemplate(stressWorkspace(), id));
+  }
+  return cvs;
 }

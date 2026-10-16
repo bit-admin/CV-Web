@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "assets:build": "node scripts/build-runtime-assets.mjs",
+    "thumbnails": "node scripts/build-thumbnails.mjs",
     "assets:download": "texlyre-busytex download-assets ./vendor && npm run assets:build",
     "deploy": "npm run build && WRANGLER_WRITE_LOGS=false wrangler deploy"
   },

@@ -33,17 +33,19 @@ import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/d
 import { summarizeTexLog } from "./lib/editing";
 import { cjkFontUrls, latexFontAssets, runtimeAssetGroup, runtimeAssetUrls, supplementalTexliveAssets } from "./lib/assets";
 import { cjkFontGroups, renderLatex } from "./lib/latex";
+import { templateById, workspaceTemplate } from "./lib/templates";
+import { TemplatePicker } from "./components/TemplatePicker";
 import { LatexEngineService } from "./lib/latexEngine";
 import { locateSnippet, type LayoutIssue } from "./lib/layoutAnalysis";
 import { loadLibrary } from "./lib/library";
 import { formatDownload, pendingDownloadSize, prepareRuntimeAssets, type DownloadProgress } from "./lib/runtimeAssets";
 import { registerServiceWorker } from "./lib/serviceWorker";
-import type { CompileResult, CompileState, CVBlock, CVBlockType, CVDocument, CVLanguageCode, CVWorkspace } from "./lib/types";
+import type { CompileResult, CompileState, CVBlock, CVBlockType, CVDocument, CVLanguageCode, CVTemplateId, CVWorkspace } from "./lib/types";
 import { useHistory } from "./lib/useHistory";
 import { useLibrary } from "./lib/useLibrary";
 
 type Selection = "header" | string;
-type ModalId = "library" | "ai" | "help" | "license";
+type ModalId = "library" | "ai" | "help" | "license" | "template";
 type Toast = { text: string; action?: { label: string; run: () => void } };
 
 const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -167,6 +169,9 @@ function LicenseContent() {
         <br />
         Copyright (c) 2026 bit-admin. Licensed under MIT.
       </p>
+      <p>
+        The Timeline template follows the layout of a CV template by Martin Hoelzer.
+      </p>
     </>
   );
 }
@@ -179,6 +184,8 @@ export function App() {
   const [activeSelection, setActiveSelection] = useState<Selection>("header");
   const [compileState, setCompileState] = useState<CompileState>("idle");
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
+  // The template the shown PDF was typeset with: the layout check and the preview sync read its geometry.
+  const [compiledTemplateId, setCompiledTemplateId] = useState<CVTemplateId | undefined>(undefined);
   const [compileError, setCompileError] = useState<{ message: string; log: string; tex: string } | null>(null);
   const [compilePending, setCompilePending] = useState(false);
   const [download, setDownload] = useState<DownloadProgress | null>(null);
@@ -220,6 +227,7 @@ export function App() {
 
   const activeLanguage = workspace.languages.find((language) => language.code === workspace.activeLanguage) ?? workspace.languages[0];
   const cvDocument = activeLanguage.document;
+  const template = workspaceTemplate(workspace);
   const tex = useMemo(() => renderLatex(workspace), [workspace]);
   const { zh: needsZhFonts, ja: needsJaFonts } = cjkFontGroups(workspace);
   const fontGroups = useMemo(() => ({ zh: needsZhFonts, ja: needsJaFonts }), [needsZhFonts, needsJaFonts]);
@@ -282,6 +290,16 @@ export function App() {
       });
     },
     [activeBlockIndex, updateWorkspace, workspace.languages]
+  );
+
+  const chooseTemplate = useCallback(
+    (id: CVTemplateId) => {
+      history.checkpoint();
+      updateWorkspace((draft) => {
+        draft.template = id;
+      });
+    },
+    [history, updateWorkspace]
   );
 
   const toggleLanguage = useCallback(
@@ -379,6 +397,7 @@ export function App() {
     engineRef.current = engine;
     setCompileState((state) => (state === "loading" ? state : "compiling"));
     const source = tex;
+    const sourceTemplateId = template.id;
     try {
       // Fetches whatever the engine still lacks: everything on a first visit, CJK fonts when a language needs them.
       await prepareRuntimeAssets(
@@ -392,6 +411,7 @@ export function App() {
       setDownload(null);
       const result = await engine.compile(source, [...latexFontAssets(fontGroups), ...supplementalTexliveAssets]);
       setCompileResult(result);
+      setCompiledTemplateId(sourceTemplateId);
       setCompileError(null);
       setCompileState("ready");
     } catch (error) {
@@ -401,7 +421,7 @@ export function App() {
       setCompileError({ message: summary?.message ?? log.split("\n")[0].slice(0, 200), log, tex: source });
       setCompileState("error");
     }
-  }, [fontGroups, tex]);
+  }, [fontGroups, template.id, tex]);
 
   const requestCompile = useCallback(() => setCompilePending(true), []);
 
@@ -594,6 +614,20 @@ export function App() {
         />
       )
     },
+    template: {
+      title: "Choose a template",
+      content: (
+        <TemplatePicker
+          current={template.id}
+          language={workspace.activeLanguage}
+          onChoose={(id) => {
+            chooseTemplate(id);
+            closeModal();
+          }}
+          onClose={closeModal}
+        />
+      )
+    },
     help: { title: "Help", content: <HelpContent /> },
     license: { title: "License", content: <LicenseContent /> }
   };
@@ -674,6 +708,8 @@ export function App() {
       <div className="workbench" ref={shellRef} style={{ gridTemplateColumns: `${SIDEBAR_WIDTH}px ${editorColumn} 0px minmax(${MIN_PREVIEW}px, 55fr)` }}>
         <Sidebar
           workspace={workspace}
+          template={template}
+          onChangeTemplate={() => setActiveModal("template")}
           document={cvDocument}
           activeSelection={activeSelection}
           issueCounts={issueCounts}
@@ -687,12 +723,13 @@ export function App() {
 
         <main className="editor-column">
           {activeSelection === "header" && (
-            <HeaderEditor document={cvDocument} onChange={(header) => updateDocument((draft) => void (draft.header = header))} />
+            <HeaderEditor document={cvDocument} notes={template.headerNotes} onChange={(header) => updateDocument((draft) => void (draft.header = header))} />
           )}
           {activeBlock && (
             <BlockEditor
               key={`${workspace.activeLanguage}-${activeBlock.id}`}
               block={activeBlock}
+              titleNote={template.titleNote}
               index={activeBlockIndex}
               total={cvDocument.blocks.length}
               issueCount={issueCounts.get(activeBlock.id) ?? 0}
@@ -779,6 +816,7 @@ export function App() {
           <div className="preview-stage">
           <PdfPreview
             bytes={compileResult?.pdf ?? null}
+            layout={templateById(compiledTemplateId).layout}
             compileState={compileState}
             download={download}
             zoom={zoom}

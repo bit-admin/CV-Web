@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { FileText } from "lucide-react";
 import type { CompileState } from "../lib/types";
-import { analyzeLayout, type LayoutIssue, type PdfPageText } from "../lib/layoutAnalysis";
-import { PAGE_LAYOUT } from "../lib/latex";
+import { analyzeLayout, type LayoutIssue, type PdfPageText, type PdfTextRun } from "../lib/layoutAnalysis";
+import { CLASSIC_LAYOUT } from "../lib/templates/classic";
+import type { TemplateLayout } from "../lib/templates/shared";
 import { formatDownload, type DownloadProgress } from "../lib/runtimeAssets";
 import { DownloadCard } from "./DownloadCard";
 import { extractPageText } from "../lib/pdfText";
@@ -18,6 +19,8 @@ export type PageInfo = { current: number; total: number };
 
 type PdfPreviewProps = {
   bytes: Uint8Array | null;
+  /** Geometry of the template the PDF was typeset with. */
+  layout: TemplateLayout;
   compileState: CompileState;
   /** Engine download in progress, if any. */
   download: DownloadProgress | null;
@@ -57,6 +60,7 @@ function issueMarker(issue: LayoutIssue, onSelect: (issue: LayoutIssue) => void)
 
 export function PdfPreview({
   bytes,
+  layout,
   compileState,
   download,
   zoom,
@@ -72,6 +76,8 @@ export function PdfPreview({
   const pagesRef = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onLayoutIssues, onSelectIssue, onPageInfo, onScale });
   callbacks.current = { onLayoutIssues, onSelectIssue, onPageInfo, onScale };
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const analysis = useRef<{ bytes: Uint8Array; issues: LayoutIssue[]; texts: PdfPageText[] } | null>(null);
   const handledFocus = useRef(0);
   const [width, setWidth] = useState(0);
@@ -165,7 +171,7 @@ export function PdfPreview({
       if (cancelled || !host || !viewport) return;
 
       if (needsAnalysis) {
-        const issues = analyzeLayout(texts);
+        const issues = analyzeLayout(texts, layoutRef.current);
         analysis.current = { bytes: source, issues, texts };
         callbacks.current.onLayoutIssues(issues, true);
       }
@@ -219,7 +225,7 @@ export function PdfPreview({
     const texts = analysis.current?.texts;
     if (!focus || !viewport || !host || !texts?.length || handledFocus.current === focus.nonce) return;
     handledFocus.current = focus.nonce;
-    const target = findHeading(texts, focus);
+    const target = findHeading(texts, focus, layoutRef.current);
     const wrapper = target && host.querySelector<HTMLElement>(`.pdf-page-wrap[data-page="${target.page}"]`);
     if (!target || !wrapper) return;
     const top = wrapper.offsetTop + target.y * wrapper.offsetHeight - 72;
@@ -304,16 +310,18 @@ export function PdfPreview({
 
 const HEADER_FONT_SIZE = 20;
 const PT_PER_CM = 72 / 2.54;
-/** Right edge of the section-title column: where the section body begins, less a little slack. */
-const LABEL_COLUMN_END_PT =
-  (PAGE_LAYOUT.pageWidthCm - PAGE_LAYOUT.rightCm - PAGE_LAYOUT.sectionBodyCm - 0.3) * PT_PER_CM;
 
 function letters(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
 }
 
-/** Finds a heading in the left column of the given CV; y is a fraction of the page height (0 = top). */
-export function findHeading(texts: PdfPageText[], focus: PreviewFocus): { page: number; y: number } | null {
+/** Finds a section heading of the given CV; y is a fraction of the page height (0 = top). */
+export function findHeading(
+  texts: PdfPageText[],
+  focus: PreviewFocus,
+  layout: TemplateLayout = CLASSIC_LAYOUT
+): { page: number; y: number } | null {
+  const headingEnd = layout.headingEndCm * PT_PER_CM;
   const starts = texts.flatMap((page, index) => (page.runs.some((run) => run.fontSize >= HEADER_FONT_SIZE && run.text.trim()) ? [index] : []));
   const start = starts[focus.cvIndex] ?? 0;
   const end = starts[focus.cvIndex + 1] ?? texts.length;
@@ -321,12 +329,16 @@ export function findHeading(texts: PdfPageText[], focus: PreviewFocus): { page: 
   if (needle.length >= 2) {
     for (let index = start; index < end; index += 1) {
       const page = texts[index];
-      // Headings sit in the label column, left of the section body (a
-      // bullet's text starts further right); join runs on the same line there.
+      // Classic titles sit in the label column, left of the section body (a
+      // bullet's text starts further right); Timeline titles span the width but
+      // start at the margin in the heading size. Join a title's runs per line.
+      const inHeading = (run: PdfTextRun) =>
+        run.fontSize >= layout.headingMinFontSize && (layout.headingMinFontSize > 0 || run.x < headingEnd);
+      const titleLines = new Set(page.runs.filter((run) => inHeading(run) && run.x < headingEnd).map((run) => Math.round(run.y)));
       const lines = new Map<number, string>();
       for (const run of page.runs) {
-        if (run.x >= LABEL_COLUMN_END_PT) continue;
         const key = Math.round(run.y);
+        if (!titleLines.has(key) || !inHeading(run)) continue;
         lines.set(key, (lines.get(key) ?? "") + run.text);
       }
       for (const [y, text] of [...lines.entries()].sort((a, b) => b[0] - a[0])) {
