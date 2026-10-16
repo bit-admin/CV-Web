@@ -11,3 +11,6 @@ public/core/
 public/fonts/
 public/licenses/
 latex/
+.busytex-upgrade/
+vendor/
+wrangler.jsonc

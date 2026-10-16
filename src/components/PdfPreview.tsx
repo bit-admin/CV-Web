@@ -4,6 +4,7 @@ import type { CompileState } from "../lib/types";
 import { analyzeLayout, type LayoutIssue, type PdfPageText } from "../lib/layoutAnalysis";
 import { PAGE_LAYOUT } from "../lib/latex";
 import { formatDownload, type DownloadProgress } from "../lib/runtimeAssets";
+import { DownloadCard } from "./DownloadCard";
 import { extractPageText } from "../lib/pdfText";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
@@ -267,19 +268,18 @@ export function PdfPreview({
         ) : (
           <div className="progress-bar" role="progressbar" aria-label="Compiling" />
         ))}
-      {!bytes && (
+      {!bytes && download && (
+        <div className="preview-empty">
+          <DownloadCard download={download} />
+        </div>
+      )}
+      {!bytes && !download && (
         <div className="preview-empty">
           <FileText size={36} strokeWidth={1.25} />
           {busy ? (
             <>
-              <strong>
-                {download ? "Downloading the TeX engine" : compileState === "loading" ? "Preparing the TeX engine" : "Compiling your CV"}
-              </strong>
-              {download && <span className="preview-download">{formatDownload(download)}</span>}
-              <p>
-                Everything runs in your browser. The engine and fonts download once and are kept for offline use; later
-                compiles take a few seconds.
-              </p>
+              <strong>{compileState === "loading" ? "Starting the TeX engine" : "Compiling your CV"}</strong>
+              <p>Everything runs in your browser.</p>
             </>
           ) : (
             <>
@@ -287,6 +287,12 @@ export function PdfPreview({
               <p>Compile to see your CV here.</p>
             </>
           )}
+        </div>
+      )}
+      {bytes && download && (
+        // Fonts for a newly enabled language download over the current PDF.
+        <div className="preview-download-overlay">
+          <DownloadCard download={download} />
         </div>
       )}
       {bytes && !painted && !error && <p className="preview-rendering">Rendering preview…</p>}

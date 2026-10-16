@@ -31,12 +31,12 @@ import { Sidebar } from "./components/Sidebar";
 import { IconButton, Kbd, keys, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
-import { latexFontAssets, runtimeAssetUrls, supplementalTexliveAssets } from "./lib/assets";
+import { cjkFontUrls, latexFontAssets, runtimeAssetGroup, runtimeAssetUrls, supplementalTexliveAssets } from "./lib/assets";
 import { cjkFontGroups, renderLatex } from "./lib/latex";
 import { LatexEngineService } from "./lib/latexEngine";
 import { locateSnippet, type LayoutIssue } from "./lib/layoutAnalysis";
 import { loadLibrary } from "./lib/library";
-import { formatDownload, prepareRuntimeAssets, type DownloadProgress } from "./lib/runtimeAssets";
+import { formatDownload, pendingDownloadSize, prepareRuntimeAssets, type DownloadProgress } from "./lib/runtimeAssets";
 import { registerServiceWorker } from "./lib/serviceWorker";
 import type { CompileResult, CompileState, CVBlock, CVBlockType, CVDocument, CVLanguageCode, CVWorkspace } from "./lib/types";
 import { useHistory } from "./lib/useHistory";
@@ -182,6 +182,7 @@ export function App() {
   const [compileError, setCompileError] = useState<{ message: string; log: string; tex: string } | null>(null);
   const [compilePending, setCompilePending] = useState(false);
   const [download, setDownload] = useState<DownloadProgress | null>(null);
+  const [fontDownloads, setFontDownloads] = useState<Partial<Record<CVLanguageCode, number>>>({});
   const [autoCompile, setAutoCompile] = useState(() => readSetting(AUTO_COMPILE_KEY, true));
   const [activeModal, setActiveModal] = useState<null | ModalId>(null);
   const [layoutIssues, setLayoutIssues] = useState<LayoutIssue[]>([]);
@@ -380,10 +381,14 @@ export function App() {
     const source = tex;
     try {
       // Fetches whatever the engine still lacks: everything on a first visit, CJK fonts when a language needs them.
-      await prepareRuntimeAssets(runtimeAssetUrls(fontGroups), (progress) => {
-        setCompileState("loading");
-        setDownload(progress);
-      });
+      await prepareRuntimeAssets(
+        runtimeAssetUrls(fontGroups),
+        (progress) => {
+          setCompileState("loading");
+          setDownload(progress);
+        },
+        runtimeAssetGroup
+      );
       setDownload(null);
       const result = await engine.compile(source, [...latexFontAssets(fontGroups), ...supplementalTexliveAssets]);
       setCompileResult(result);
@@ -423,6 +428,18 @@ export function App() {
   }, [compile]);
 
   useEffect(() => () => engineRef.current?.close(), []);
+
+  // How much turning on Chinese or Japanese would download, for the language list; rechecked after each download.
+  useEffect(() => {
+    if (download) return;
+    let cancelled = false;
+    void Promise.all([pendingDownloadSize(cjkFontUrls("zh")), pendingDownloadSize(cjkFontUrls("ja"))]).then(([zh, ja]) => {
+      if (!cancelled) setFontDownloads({ zh, ja });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [download]);
 
   // Auto-compile shortly after edits stop (not again for a source that just failed).
   useEffect(() => {
@@ -539,7 +556,9 @@ export function App() {
   const statusKind = compileState === "error" ? "error" : busy ? "busy" : !compileResult ? "idle" : upToDate ? "ok" : "stale";
   const statusLabel =
     compileState === "loading"
-      ? "Preparing engine…"
+      ? download?.groups.every((group) => group.group !== "engine")
+        ? "Downloading fonts…"
+        : "Preparing engine…"
       : compileState === "compiling"
         ? "Compiling…"
         : compileState === "error"
@@ -661,6 +680,7 @@ export function App() {
           onSelect={setActiveSelection}
           onSelectLanguage={selectLanguage}
           onToggleLanguage={toggleLanguage}
+          fontDownloads={fontDownloads}
           onAddBlock={addBlock}
           onReorder={reorderBlocks}
         />

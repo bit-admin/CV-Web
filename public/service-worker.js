@@ -1,7 +1,9 @@
-// Bump SHELL_CACHE on each deploy so the app shell updates. Runtime files (TeX engine, TeX files, fonts) live in
-// RUNTIME_CACHE under versioned keys written by src/lib/runtimeAssets.ts, so a deploy does not re-download them.
+// The page is fetched network-first, so a deploy shows up on the next visit and the cache only serves it offline;
+// other app files (Vite's content-hashed bundles, icons) are cache-first. Runtime files (TeX engine, TeX files,
+// fonts) live in RUNTIME_CACHE under versioned keys written by src/lib/runtimeAssets.ts, so a deploy does not
+// re-download them.
 // Keep RUNTIME_CACHE, RUNTIME_MANIFEST_URL and the `<url>?v=<hash>` key format in sync with that module.
-const SHELL_CACHE = "cv-forge-shell-v23";
+const SHELL_CACHE = "cv-forge-shell-v25";
 const RUNTIME_CACHE = "cv-forge-runtime";
 const RUNTIME_MANIFEST_URL = "/core/runtime-manifest.json";
 const RUNTIME_PREFIXES = ["/core/", "/fonts/"];
@@ -67,7 +69,8 @@ async function runtimeResponse(request, pathname) {
   let body;
   if (file.parts) {
     const parts = [];
-    for (const part of file.parts) parts.push(await (await fetchOk(part.url)).blob());
+    // Parts the page already downloaded are reused.
+    for (const part of file.parts) parts.push(await ((await cache.match(part.url)) ?? (await fetchOk(part.url))).blob());
     body = await new Response(new Blob(parts).stream().pipeThrough(new DecompressionStream("gzip"))).blob();
   } else {
     body = await (await fetchOk(key)).blob();
@@ -124,6 +127,23 @@ self.addEventListener("fetch", (event) => {
     if (!url.search && !url.pathname.startsWith("/core/packs/")) {
       event.respondWith(runtimeResponse(request, url.pathname));
     }
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      caches.open(SHELL_CACHE).then(async (cache) => {
+        try {
+          const response = await fetch(request);
+          if (response.ok) await cache.put("/", response.clone());
+          return response;
+        } catch (error) {
+          const cached = await cache.match("/");
+          if (cached) return cached;
+          throw error;
+        }
+      })
+    );
     return;
   }
 

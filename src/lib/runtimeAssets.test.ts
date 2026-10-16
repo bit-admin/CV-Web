@@ -5,6 +5,9 @@ import {
   RUNTIME_MANIFEST_URL,
   cacheKey,
   formatDownload,
+  formatMegabytes,
+  formatTimeLeft,
+  pendingDownloadSize,
   prepareRuntimeAssets,
   readRuntimeAsset,
   resetRuntimeManifest,
@@ -79,11 +82,29 @@ afterEach(() => {
 describe("runtime assets", () => {
   it("downloads, unpacks and caches missing files, reporting progress in transferred bytes", async () => {
     const progress: DownloadProgress[] = [];
-    await prepareRuntimeAssets(["/core/busytex/busytex.wasm", "/core/texmf/x.sty"], (value) => progress.push(value));
+    await prepareRuntimeAssets(
+      ["/core/busytex/busytex.wasm", "/core/texmf/x.sty"],
+      (value) => progress.push(value),
+      (url) => (url.endsWith(".wasm") ? "engine" : "tex")
+    );
 
     const total = wasmGzip.length + style.length;
-    expect(progress[0]).toEqual({ loaded: 0, total });
-    expect(progress.at(-1)).toEqual({ loaded: total, total });
+    expect(progress[0]).toEqual({
+      loaded: 0,
+      total,
+      groups: [
+        { group: "engine", loaded: 0, total: wasmGzip.length },
+        { group: "tex", loaded: 0, total: style.length }
+      ]
+    });
+    expect(progress.at(-1)).toEqual({
+      loaded: total,
+      total,
+      groups: [
+        { group: "engine", loaded: wasmGzip.length, total: wasmGzip.length },
+        { group: "tex", loaded: style.length, total: style.length }
+      ]
+    });
 
     const store = caches.stores.get(RUNTIME_CACHE)!;
     const cachedWasm = store.get(`${ORIGIN}${cacheKey("/core/busytex/busytex.wasm", manifest.files["/core/busytex/busytex.wasm"])}`)!;
@@ -103,8 +124,42 @@ describe("runtime assets", () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([RUNTIME_MANIFEST_URL]);
   });
 
+  it("resumes from parts cached before an interrupted download, then drops them", async () => {
+    const firstPart = manifest.files["/core/busytex/busytex.wasm"].parts![0];
+    const store = await caches.api.open(RUNTIME_CACHE);
+    await store.put(firstPart.url, new Response(new Blob([hosted[firstPart.url]])));
+
+    const progress: DownloadProgress[] = [];
+    await prepareRuntimeAssets(["/core/busytex/busytex.wasm"], (value) => progress.push(value));
+
+    expect(progress[0]).toMatchObject({ loaded: firstPart.size, total: wasmGzip.length });
+    expect(progress[0].groups).toEqual([{ group: "files", loaded: firstPart.size, total: wasmGzip.length }]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([RUNTIME_MANIFEST_URL, "/core/packs/busytex.wasm.aaa.001.bin"]);
+    expect(await readRuntimeAsset("/core/busytex/busytex.wasm")).toEqual(wasm);
+    expect(await store.match(firstPart.url)).toBeUndefined();
+  });
+
+  it("reports how much is still to download, counting cached parts as done", async () => {
+    const [firstPart, secondPart] = manifest.files["/core/busytex/busytex.wasm"].parts!;
+    expect(await pendingDownloadSize(["/core/busytex/busytex.wasm", "/core/texmf/x.sty"])).toBe(wasmGzip.length + style.length);
+    const store = await caches.api.open(RUNTIME_CACHE);
+    await store.put(firstPart.url, new Response(new Blob([hosted[firstPart.url]])));
+    expect(await pendingDownloadSize(["/core/busytex/busytex.wasm"])).toBe(secondPart.size);
+    await prepareRuntimeAssets(["/core/busytex/busytex.wasm"]);
+    expect(await pendingDownloadSize(["/core/busytex/busytex.wasm"])).toBe(0);
+  });
+
   it("rejects a file the manifest does not list", async () => {
     await expect(prepareRuntimeAssets(["/core/texmf/missing.sty"])).rejects.toThrow(/missing from the runtime manifest/);
+  });
+
+  it("formats sizes and time left for the download card", () => {
+    expect(formatMegabytes(0.4 * 1024 * 1024)).toBe("0.4 MB");
+    expect(formatMegabytes(96.4 * 1024 * 1024)).toBe("96 MB");
+    expect(formatTimeLeft(1024, null)).toBeNull();
+    expect(formatTimeLeft(1024, 1024)).toBe("a few seconds left");
+    expect(formatTimeLeft(40 * 100_000, 100_000)).toBe("about 40 s left");
+    expect(formatTimeLeft(13 * 60 * 100_000, 100_000)).toBe("about 13 min left");
   });
 
   it("formats progress for the status bar", () => {

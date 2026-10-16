@@ -1,3 +1,4 @@
+// Copy to wrangler.jsonc (gitignored) and set your domain.
 {
   "name": "cv-web",
   "compatibility_date": "2026-05-19",
@@ -5,5 +6,7 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
-  }
+  },
+  // A custom domain on a zone in your Cloudflare account; remove to use *.workers.dev only.
+  "routes": [{ "pattern": "cv.example.com", "custom_domain": true }]
 }

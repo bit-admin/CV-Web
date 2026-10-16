@@ -37,6 +37,16 @@ export function latexFontAssets(groups: Record<CJKFontGroup, boolean>): RuntimeA
   return fontAssets.filter((asset) => asset.group === null || groups[asset.group]);
 }
 
+/** URLs of one language's CJK fonts. */
+export function cjkFontUrls(group: CJKFontGroup): string[] {
+  return fontAssets.filter((asset) => asset.group === group).map((asset) => asset.url);
+}
+
+/** What a runtime file belongs to, for download progress: a CJK font set, or the engine (everything else). */
+export function runtimeAssetGroup(url: string): CJKFontGroup | "engine" {
+  return fontAssets.find((asset) => asset.url === url)?.group ?? "engine";
+}
+
 export const supplementalTexliveAssets: RuntimeAsset[] = [
   "enumitem.sty",
   "ragged2e.sty",
@@ -114,14 +124,11 @@ export const supplementalTexliveAssets: RuntimeAsset[] = [
 export const busyTexAssets = [
   "/core/busytex/busytex.js",
   "/core/busytex/busytex_pipeline.js",
+  "/core/busytex/busytex_biber.js",
   "/core/busytex/busytex.wasm",
   "/core/busytex/busytex_worker.js",
   "/core/busytex/texlive-basic.js",
-  "/core/busytex/texlive-basic.data",
-  "/core/busytex/texlive-basic.js.providespackage.txt",
-  "/core/busytex/texlive-basic.profile",
-  "/core/busytex/texlive-basic.txt",
-  "/core/busytex/versions.txt"
+  "/core/busytex/texlive-basic.data"
 ];
 
 /** Everything a compile with these font groups needs, as URLs listed in the runtime manifest. */
