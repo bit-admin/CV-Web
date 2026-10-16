@@ -1,5 +1,6 @@
 import { sampleCv, sampleCvByLanguage } from "../data/sampleCv";
 import { escapeMathDollars } from "./markup";
+import { isTemplateId } from "./templates";
 import type {
   BulletedEntry,
   CVBlock,
@@ -573,6 +574,7 @@ export function normalizeWorkspace(value: unknown): CVWorkspace | null {
   return {
     version: WORKSPACE_VERSION,
     markup: MARKUP_VERSION,
+    ...(isTemplateId(value.template) ? { template: value.template } : {}),
     activeLanguage,
     languages
   };

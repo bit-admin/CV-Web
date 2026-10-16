@@ -20,6 +20,8 @@ import type { LucideIcon } from "lucide-react";
 import type { CVBlockType, CVDocument, CVLanguageCode, CVWorkspace } from "../lib/types";
 import { blockCount, blockTypeDescriptions, blockTypeLabels } from "./BlockEditor";
 import { MenuButton } from "./ui";
+import { TemplateSummary } from "./TemplatePicker";
+import type { CVTemplate } from "../lib/templates";
 
 export const blockTypeIcons: Record<CVBlockType, LucideIcon> = {
   credential: GraduationCap,
@@ -47,6 +49,8 @@ const nativeNames: Record<CVLanguageCode, string> = { en: "English", zh: "中文
 
 type SidebarProps = {
   workspace: CVWorkspace;
+  template: CVTemplate;
+  onChangeTemplate: () => void;
   document: CVDocument;
   activeSelection: string;
   issueCounts: Map<string, number>;
@@ -61,6 +65,8 @@ type SidebarProps = {
 
 export function Sidebar({
   workspace,
+  template,
+  onChangeTemplate,
   document,
   activeSelection,
   issueCounts,
@@ -94,6 +100,11 @@ export function Sidebar({
 
   return (
     <nav className="sidebar" aria-label="Document outline">
+      <section className="sidebar-group">
+        <h2 className="sidebar-title">Template</h2>
+        <TemplateSummary template={template} language={workspace.activeLanguage} onChange={onChangeTemplate} />
+      </section>
+
       <section className="sidebar-group">
         <h2 className="sidebar-title">Languages</h2>
         <ul className="language-list">

@@ -7,6 +7,8 @@
 //     files are {filename, start, end} offsets into out.data.
 //   node scripts/busytex-node.mjs hashes <engine-dir> <package-js> <jobs.json> <out.json>
 //     Compiles every CV and writes the PDF hashes.
+//   node scripts/busytex-node.mjs pdfs <engine-dir> <package-js> <jobs.json> <out.json> <out-dir>
+//     Compiles every CV and writes <out-dir>/<name>.pdf and its TeX log (for scripts/build-thumbnails.mjs).
 //
 // jobs.json: {"cvs": {name: tex}, "files": [{"path": "Fonts/x.ttf", "source": "/abs/path"}]} — the extra files the
 // app writes into the project directory before compiling.
@@ -206,9 +208,25 @@ async function trace() {
   return { files, hashes: baseline.hashes };
 }
 
+async function pdfs(outDir) {
+  const { compile } = await startEngine();
+  const written = {};
+  for (const [name, tex] of Object.entries(jobs.cvs)) {
+    const result = await compile(tex);
+    const log = (result.logs ?? []).map((entry) => entry.log ?? "").join("\n");
+    writeFileSync(path.join(outDir, `${name}.log`), log);
+    if (!result.pdf?.length) throw new Error(`${name} does not compile, see ${name}.log:\n${log.slice(-1500)}`);
+    written[name] = path.join(outDir, `${name}.pdf`);
+    writeFileSync(written[name], result.pdf);
+  }
+  return written;
+}
+
 const result =
   command === "trace"
     ? await trace()
+    : command === "pdfs"
+      ? await pdfs(dataPath)
     : command === "hashes"
       ? await (async () => {
           const { hashes, failure } = await compileAll((await startEngine()).compile);

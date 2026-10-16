@@ -1,4 +1,5 @@
-import { PAGE_LAYOUT } from "./latex";
+import { CLASSIC_LAYOUT } from "./templates/classic";
+import type { TemplateLayout } from "./templates/shared";
 import type { CVBlock, CVLanguageCode, CVWorkspace } from "./types";
 import { markupToPlainText } from "./markup";
 
@@ -59,12 +60,11 @@ const HEADER_FONT_SIZE = 20;
 // (but not a year ending a sentence, like "2024.").
 const DATE_ONLY = /^\d{4}([./]\d{1,2})?(\s*[-–—~～]\s*(\d{4}([./]\d{1,2})?|present|至今|现在|現在))?$/i;
 
-function geometry(page: PdfPageText) {
-  const top = PAGE_LAYOUT.topCm * PT_PER_CM;
-  const bottom = page.height - PAGE_LAYOUT.bottomCm * PT_PER_CM;
-  const textWidth = (PAGE_LAYOUT.pageWidthCm - PAGE_LAYOUT.leftCm - PAGE_LAYOUT.rightCm) * PT_PER_CM;
-  const bodyLeft = PAGE_LAYOUT.leftCm * PT_PER_CM + textWidth - PAGE_LAYOUT.sectionBodyCm * PT_PER_CM;
-  const bodyRight = PAGE_LAYOUT.leftCm * PT_PER_CM + textWidth;
+function geometry(page: PdfPageText, layout: TemplateLayout) {
+  const top = layout.topCm * PT_PER_CM;
+  const bottom = page.height - layout.bottomCm * PT_PER_CM;
+  const bodyLeft = layout.bodyLeftCm * PT_PER_CM;
+  const bodyRight = (layout.pageWidthCm - layout.rightCm) * PT_PER_CM;
   return { top, bottom, bodyLeft, bodyRight, bodyWidth: bodyRight - bodyLeft };
 }
 
@@ -105,12 +105,13 @@ function truncate(value: string, length = 48): string {
   return value.length > length ? `${value.slice(0, length - 1)}…` : value;
 }
 
-export function analyzeLayout(pages: PdfPageText[]): LayoutIssue[] {
+/** Layout issues of a PDF typeset with a template of the given geometry. */
+export function analyzeLayout(pages: PdfPageText[], layout: TemplateLayout = CLASSIC_LAYOUT): LayoutIssue[] {
   const issues: LayoutIssue[] = [];
 
   pages.forEach((page, index) => {
     const pageNumber = index + 1;
-    const { top, bottom, bodyLeft, bodyRight, bodyWidth } = geometry(page);
+    const { top, bottom, bodyLeft, bodyRight, bodyWidth } = geometry(page, layout);
     const textHeight = bottom - top;
     // Everything inside the text area (page numbers sit below it).
     const allLines = linesOf(page, 0, bottom);
@@ -126,14 +127,14 @@ export function analyzeLayout(pages: PdfPageText[]): LayoutIssue[] {
     const next = pages[index + 1];
     const endsDocument = !next || isHeaderPage(next);
     const gapRect: LayoutRect = {
-      x: PAGE_LAYOUT.leftCm * PT_PER_CM / page.width,
+      x: layout.leftCm * PT_PER_CM / page.width,
       y: usedBottom / page.height,
-      width: (bodyRight - PAGE_LAYOUT.leftCm * PT_PER_CM) / page.width,
+      width: (bodyRight - layout.leftCm * PT_PER_CM) / page.width,
       height: Math.max(0, bottom - usedBottom) / page.height
     };
 
     if (!endsDocument && fill < PAGE_GAP_MIN_FILL) {
-      const nextLines = linesOf(next, geometry(next).bodyLeft - 8, geometry(next).bottom);
+      const nextLines = linesOf(next, geometry(next, layout).bodyLeft - 8, geometry(next, layout).bottom);
       const nextEntry = nextLines[0]?.text ?? "";
       const free = linesToSave(bottom - usedBottom, lineHeight);
       issues.push({

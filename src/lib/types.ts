@@ -171,10 +171,15 @@ export type CVLanguageDocument = {
 
 export type CVWorkspaceVersion = 3;
 
+/** The LaTeX template a CV is typeset with; see `lib/templates`. */
+export type CVTemplateId = "classic" | "timeline";
+
 export type CVWorkspace = {
   version: CVWorkspaceVersion;
   /** Inline markup generation: 2 added `$math$` and backslash escapes. Absent in data saved before. */
   markup?: 2;
+  /** Absent in data saved before templates existed, which means "classic". */
+  template?: CVTemplateId;
   activeLanguage: CVLanguageCode;
   languages: CVLanguageDocument[];
 };

@@ -1,10 +1,11 @@
-// CVs that exercise every part of the LaTeX template, used by build-runtime-assets.mjs to find the TeX Live files a
+// CVs that exercise every part of every LaTeX template, used by build-runtime-assets.mjs to find the TeX Live files a
 // compile needs and to check that the trimmed package produces identical PDFs. Extend this when the template
 // gains a feature these do not reach.
 import { createEmptyBlock, createSampleWorkspace } from "../src/lib/document";
 import { renderLatex } from "../src/lib/latex";
+import { TEMPLATES } from "../src/lib/templates";
 import { DELIMITER_COMMANDS, MATH_COMMANDS, validateMath } from "../src/lib/markup";
-import type { CVBlockType, CVLanguageCode, CVWorkspace } from "../src/lib/types";
+import type { CVBlockType, CVLanguageCode, CVTemplateId, CVWorkspace } from "../src/lib/types";
 
 const BLOCK_TYPES: CVBlockType[] = [
   "credential",
@@ -92,12 +93,20 @@ function stressWorkspace(): CVWorkspace {
   return workspace;
 }
 
+function withTemplate(workspace: CVWorkspace, template: CVTemplateId): CVWorkspace {
+  workspace.template = template;
+  return workspace;
+}
+
+/** Every coverage CV in every template, as `<template>-<cv>`. */
 export function coverageCvs(): Record<string, string> {
-  return {
-    en: renderLatex(withLanguages(["en"])),
-    zh: renderLatex(withLanguages(["zh"])),
-    ja: renderLatex(withLanguages(["ja"])),
-    all: renderLatex(withLanguages(["en", "zh", "ja"])),
-    stress: renderLatex(stressWorkspace())
-  };
+  const cvs: Record<string, string> = {};
+  for (const { id } of TEMPLATES) {
+    cvs[`${id}-en`] = renderLatex(withTemplate(withLanguages(["en"]), id));
+    cvs[`${id}-zh`] = renderLatex(withTemplate(withLanguages(["zh"]), id));
+    cvs[`${id}-ja`] = renderLatex(withTemplate(withLanguages(["ja"]), id));
+    cvs[`${id}-all`] = renderLatex(withTemplate(withLanguages(["en", "zh", "ja"]), id));
+    cvs[`${id}-stress`] = renderLatex(withTemplate(stressWorkspace(), id));
+  }
+  return cvs;
 }

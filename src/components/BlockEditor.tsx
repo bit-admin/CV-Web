@@ -96,7 +96,16 @@ function FormattingFooter() {
 
 // ── Header ────────────────────────────────────────────────
 
-export function HeaderEditor({ document, onChange }: { document: CVDocument; onChange: (next: CVDocument["header"]) => void }) {
+export function HeaderEditor({
+  document,
+  notes,
+  onChange
+}: {
+  document: CVDocument;
+  /** How the CV's template shows the name and the contacts. */
+  notes: { name: string; contacts: string };
+  onChange: (next: CVDocument["header"]) => void;
+}) {
   const { header } = document;
   return (
     <div className="editor-panel">
@@ -116,9 +125,9 @@ export function HeaderEditor({ document, onChange }: { document: CVDocument; onC
               {(id) => <TextInput id={id} value={header.suffix} placeholder="Ph.D." onChange={(suffix) => onChange({ ...header, suffix })} />}
             </Field>
           </div>
-          <p className="form-note">Long names shrink automatically to fit beside the contact block.</p>
+          <p className="form-note">{notes.name}</p>
         </FormSection>
-        <FormSection title="Contact" aside={<span className="form-section-meta">Right-aligned, one per line</span>}>
+        <FormSection title="Contact" aside={<span className="form-section-meta">{notes.contacts}</span>}>
           <ListEditor
             values={header.contacts}
             noun="contact"
@@ -399,9 +408,12 @@ export function BlockEditor({
   onMove,
   onDuplicate,
   onDelete,
-  onToggleHidden
+  onToggleHidden,
+  titleNote
 }: {
   block: CVBlock;
+  /** How the CV's template sets section titles. */
+  titleNote: string;
   index: number;
   total: number;
   issueCount: number;
@@ -462,7 +474,7 @@ export function BlockEditor({
           </div>
         )}
         <FormSection title="Section">
-          <Field label="Title" hint="Press Enter to break the title over two lines in the left column.">
+          <Field label="Title" hint={titleNote}>
             {(id) => (
               <TextArea
                 id={id}
