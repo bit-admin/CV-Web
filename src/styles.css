@@ -1009,6 +1009,41 @@ code {
   resize: none;
 }
 
+/* A field and the warnings for formulas in it that will not compile. */
+.markup-field {
+  min-width: 0;
+}
+
+.math-warnings {
+  margin: 4px 0 0;
+  padding: 5px 8px;
+  border-left: 2px solid var(--warn-line);
+  list-style: none;
+  color: var(--warn);
+  background: var(--warn-bg);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.math-warnings li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 10px;
+}
+
+.math-warnings code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.math-warnings .link-button {
+  color: var(--warn);
+  font-size: 11.5px;
+  text-decoration: underline;
+}
+
 .text-area--title {
   font-weight: 600;
 }

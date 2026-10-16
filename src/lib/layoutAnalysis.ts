@@ -1,5 +1,6 @@
 import { PAGE_LAYOUT } from "./latex";
 import type { CVBlock, CVLanguageCode, CVWorkspace } from "./types";
+import { markupToPlainText } from "./markup";
 
 // Post-compile layout check. The compiled PDF's text positions are inspected
 // to spot layout problems that are easy to fix in the editor: pages left
@@ -249,7 +250,7 @@ export function locateSnippet(workspace: CVWorkspace, snippet: string): LayoutTa
         continue;
       }
       for (const block of language.document.blocks) {
-        if (!block.hidden && letters(`${block.title} ${blockText(block)}`).includes(candidate)) {
+        if (!block.hidden && letters(`${block.title} ${markupToPlainText(blockText(block))}`).includes(candidate)) {
           return { language: language.code, blockId: block.id };
         }
       }

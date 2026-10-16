@@ -12,7 +12,7 @@
 //    asset may exceed 25 MiB. The service worker serves the original URLs from the app's cache.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync, constants as zlibConstants } from "node:zlib";
@@ -168,6 +168,7 @@ for (const file of requiredSupplementalAssets) {
 rmSync(busytexDir, { recursive: true, force: true });
 mkdirSync(busytexDir, { recursive: true });
 for (const file of engineFiles) copyFileSync(path.join(vendorDir, file), path.join(busytexDir, file));
+appendFileSync(path.join(busytexDir, "busytex_pipeline.js"), `\n${readFileSync(path.join(root, "scripts/busytex-close-streams.js"), "utf8")}`);
 
 // Trim the TeX Live package, then check the result against the full package's PDFs.
 const work = mkdtempSync(path.join(tmpdir(), "cv-forge-assets-"));

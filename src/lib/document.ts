@@ -1,4 +1,5 @@
 import { sampleCv, sampleCvByLanguage } from "../data/sampleCv";
+import { escapeMathDollars } from "./markup";
 import type {
   BulletedEntry,
   CVBlock,
@@ -19,6 +20,7 @@ import type {
 
 export const DOCUMENT_VERSION = 2 as const;
 export const WORKSPACE_VERSION = 3 as const;
+export const MARKUP_VERSION = 2 as const;
 
 export const LANGUAGE_ORDER: CVLanguageCode[] = ["en", "zh", "ja"];
 
@@ -482,11 +484,53 @@ function createLanguageDocument(
   };
 }
 
+/**
+ * Rewrites text written before `$math$` and backslash escapes existed so it
+ * renders as it did: dollars that would now form a formula, and backslashes
+ * that would now escape a marker, are escaped. Section titles and code items
+ * are typeset verbatim and stay as they are.
+ */
+export function migrateDocumentMarkup(document: CVDocument): CVDocument {
+  const m = escapeMathDollars;
+  const blocks = document.blocks.map((block): CVBlock => {
+    switch (block.type) {
+      case "credential":
+        return {
+          ...block,
+          entries: block.entries.map((e) => ({ ...e, title: m(e.title), location: m(e.location), subtitle: m(e.subtitle), period: m(e.period), bullets: e.bullets.map(m) }))
+        };
+      case "role":
+        return { ...block, entries: block.entries.map((e) => ({ ...e, title: m(e.title), location: m(e.location), period: m(e.period), bullets: e.bullets.map(m) })) };
+      case "project":
+        return {
+          ...block,
+          entries: block.entries.map((e) => ({ ...e, title: m(e.title), organization: m(e.organization), period: m(e.period), bullets: e.bullets.map(m) }))
+        };
+      case "numbered-list":
+        return { ...block, items: block.items.map(m) };
+      case "dated-list":
+        return { ...block, items: block.items.map((item) => ({ ...item, text: m(item.text), date: m(item.date) })) };
+      case "label-value-list":
+        return { ...block, items: block.items.map((item) => ({ ...item, label: m(item.label), value: m(item.value) })) };
+      case "grouped-list":
+        return { ...block, groups: block.groups.map((group) => ({ ...group, label: m(group.label), items: group.items.map(m) })) };
+      case "free-text":
+        return { ...block, text: m(block.text) };
+    }
+  });
+  const { header } = document;
+  return { ...document, header: { name: m(header.name), suffix: m(header.suffix), contacts: header.contacts.map(m) }, blocks };
+}
+
+/** Wraps a document saved before workspaces existed, which predates the current markup too. */
 export function migrateDocumentToWorkspace(document: CVDocument): CVWorkspace {
   return {
     version: WORKSPACE_VERSION,
+    markup: MARKUP_VERSION,
     activeLanguage: "en",
-    languages: LANGUAGE_ORDER.map((code) => createLanguageDocument(code, code === "en" ? document : undefined, code === "en"))
+    languages: LANGUAGE_ORDER.map((code) =>
+      createLanguageDocument(code, code === "en" ? migrateDocumentMarkup(document) : undefined, code === "en")
+    )
   };
 }
 
@@ -502,11 +546,12 @@ export function normalizeWorkspace(value: unknown): CVWorkspace | null {
         return;
       }
 
+      const document = normalizeDocument(language.document) ?? createEmptyDocument();
       languageByCode.set(
         language.code,
         createLanguageDocument(
           language.code,
-          normalizeDocument(language.document) ?? createEmptyDocument(),
+          value.markup === MARKUP_VERSION ? document : migrateDocumentMarkup(document),
           language.enabled === true
         )
       );
@@ -527,6 +572,7 @@ export function normalizeWorkspace(value: unknown): CVWorkspace | null {
 
   return {
     version: WORKSPACE_VERSION,
+    markup: MARKUP_VERSION,
     activeLanguage,
     languages
   };
@@ -545,6 +591,7 @@ const SAMPLE_DISABLED_LANGUAGES: CVLanguageCode[] = ["zh", "ja"];
 export function createSampleWorkspace(): CVWorkspace {
   return {
     version: WORKSPACE_VERSION,
+    markup: MARKUP_VERSION,
     activeLanguage: "en",
     languages: LANGUAGE_ORDER.map((code) =>
       createLanguageDocument(
@@ -638,6 +685,7 @@ export function mapAICVToWorkspace(input: unknown): CVWorkspace | string {
 
   return {
     version: WORKSPACE_VERSION,
+    markup: MARKUP_VERSION,
     activeLanguage: languageCodes[0] ?? "en",
     languages: languageDocs
   };

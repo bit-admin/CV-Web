@@ -47,7 +47,9 @@ async function startEngine(onFS = () => {}) {
     }
   };
   const run = (file, suffix = "") => vm.runInThisContext(readFileSync(file, "utf8") + suffix, { filename: file });
-  run(path.join(engineDir, "busytex_pipeline.js"), "\nglobalThis.BusytexPipeline = BusytexPipeline;");
+  // The same stream-closing patch the app ships (a no-op when engineDir is the already patched public/ copy).
+  const closeStreams = readFileSync(new URL("./busytex-close-streams.js", import.meta.url), "utf8");
+  run(path.join(engineDir, "busytex_pipeline.js"), `\n${closeStreams}\nglobalThis.BusytexPipeline = BusytexPipeline;`);
 
   globalThis.BusytexPipeline.preRun.push((Module) => onFS(Module.FS));
   const quiet = () => {};
@@ -147,6 +149,9 @@ async function trace() {
   const { FS, compile } = await startEngine((FS) => recordTouches(FS, all, touched));
 
   const baseline = await compileAll(compile);
+  // busytex-close-streams.js must leave only stdin/stdout/stderr open, or the app fails after a few dozen compiles.
+  const leaked = FS.streams.filter((stream) => stream && stream.fd > 2).map((stream) => stream.path);
+  if (leaked.length) throw new Error(`Compiles leave files open: ${leaked.slice(0, 10).join(", ")}`);
   if (baseline.failure) throw new Error(`The full package fails to compile a CV: ${JSON.stringify(baseline.hashes)}`);
 
   // Hide (not delete) candidates so they can be restored when a compile asks for them.

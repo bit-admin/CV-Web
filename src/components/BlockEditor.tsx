@@ -14,7 +14,7 @@ import type {
 } from "../lib/types";
 import { EntryList } from "./EntryList";
 import { ListEditor, MoveButtons, useListKeys } from "./ListEditor";
-import { Field, IconButton, Kbd, MOD, TextArea, TextInput, Toggle } from "./ui";
+import { Field, IconButton, Kbd, MOD, TextArea, TextInput, Toggle, isMac } from "./ui";
 
 export const blockTypeLabels: Record<CVBlockType, string> = {
   credential: "Credentials",
@@ -82,6 +82,9 @@ function FormattingFooter() {
       </span>
       <span>
         <code>`code`</code> <Kbd>{MOD}E</Kbd>
+      </span>
+      <span title="LaTeX math such as $x^2$ or $\alpha \le 0.05$. Write \$ for a dollar sign next to a formula.">
+        <code>$x^2$</code> math <Kbd>{MOD}{isMac ? "⇧" : "Shift+"}E</Kbd>
       </span>
       <span className="editor-foot-sep" />
       <span className="editor-foot-extra">

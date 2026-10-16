@@ -7,7 +7,8 @@ A privacy-first CV/resume builder that compiles LaTeX to PDF entirely in your br
 - **Live preview** — auto-compiles a moment after you stop typing (toggle “Auto”), keeps the previous PDF on screen while compiling, and follows the section you select. Zoom, fit-to-width and page navigation float over the preview.
 - **Layout check** — after each compile, the dock under the preview lists page gaps, nearly empty last pages and short last lines; sections with suggestions are flagged in the outline.
 - **List editing** — Enter adds a bullet or item (splitting at the caret), Backspace at the start joins with the previous one, Alt+↑/↓ reorders, and pasting several lines splits them into items.
-- **Formatting shortcuts** — Ctrl/⌘+B, I and E wrap the selection in `**bold**`, `_italic_` and `` `code` ``.
+- **Formatting shortcuts** — Ctrl/⌘+B, I and E wrap the selection in `**bold**`, `_italic_` and `` `code` ``; Ctrl/⌘+Shift+E wraps it in `$math$`.
+- **Inline math** — `$O(n \log n)$` or `$\alpha \le 0.05$` is typeset as LaTeX math. As in Pandoc, a `$` only opens a formula when followed by a non-space and only closes one when preceded by a non-space and not followed by a digit, so prices like `$5–$10` stay text. A backslash escapes a marker (`\$`, `\_`, `\*`, `` \` ``, `\\`). Formulas are limited to a vetted set of math commands; one that would not compile prints as typed and is flagged under the field.
 - **Undo/redo**, drag-to-reorder sections, collapsible entries, a resizable editor/preview split, and named versions of each CV (Ctrl/⌘+S).
 
 ## Development
