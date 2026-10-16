@@ -38,7 +38,7 @@ npm run assets:download   # fetch the BusyTeX release into vendor/, then build
 npm run assets:build      # rebuild public/ from vendor/ (after changing the template, fonts or TeX files)
 ```
 
-The build trims BusyTeX's 87 MiB TeX Live package to the ~7 MiB this template uses: it runs the engine in Node on the CVs in `scripts/coverage-cvs.ts`, keeps the files they touch, shrinks ICU's data with `icupkg` (`brew install icu4c`), and fails unless every CV compiles to a byte-identical PDF. Large binaries are then gzipped into parts, since Cloudflare limits static assets to 25 MiB and does not compress `.data`, `.ttc` or split files.
+The build trims BusyTeX's 87 MiB TeX Live package to the ~9 MiB this template uses: it runs the engine in Node on the CVs in `scripts/coverage-cvs.ts`, keeps the files they touch plus the Computer Modern and AMS math fonts at every size (which of those a CV needs depends on its formulas), shrinks ICU's data with `icupkg` (`brew install icu4c`), and fails unless every CV compiles to a byte-identical PDF. Large binaries are then gzipped into parts, since Cloudflare limits static assets to 25 MiB and does not compress `.data`, `.ttc` or split files.
 
 On first use the app downloads what the CV needs (the Chinese and Japanese fonts only when those languages are on), showing progress, and keeps it in Cache Storage under content-hashed keys, resuming after a reload; later visits, and deploys that do not change the engine, download nothing. The app still requests the original URLs such as `/core/busytex/texlive-basic.data`; `public/service-worker.js` answers them from that cache.
 
