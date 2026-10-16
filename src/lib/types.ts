@@ -173,6 +173,8 @@ export type CVWorkspaceVersion = 3;
 
 export type CVWorkspace = {
   version: CVWorkspaceVersion;
+  /** Inline markup generation: 2 added `$math$` and backslash escapes. Absent in data saved before. */
+  markup?: 2;
   activeLanguage: CVLanguageCode;
   languages: CVLanguageDocument[];
 };

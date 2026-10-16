@@ -110,10 +110,14 @@ The "blocks" array contains section blocks. Each block has a "type", a "title" (
 
 ## Formatting Rules
 
+Text fields support the inline markup below, which is converted to LaTeX during PDF compilation. Everything else prints literally, so never write raw LaTeX outside math (no \\textbf, \\emph, \\%, \\&).
+
 - Use **double asterisks** for bold (e.g. **name** in citations)
 - Use _underscores_ for italic (e.g. _journal name_)
 - Use backticks for code-style text (e.g. \`Python\`)
-- These are converted to LaTeX during PDF compilation
+- Use $...$ for inline math, but only where the user's material contains a formula, variable or mathematical symbol (e.g. $O(n \\log n)$, $R^2 = 0.97$, $\\alpha$-stable, $\\mathbb{R}^d$). Do not turn ordinary numbers or percentages into math. Put no space just inside the dollar signs. Inline math only: no $$...$$, \\[...\\], environments or macro definitions. Supported: letters and digits, Greek letters, ^ and _, \\frac, \\sqrt, \\sum, \\prod, \\int, \\lim, \\log, \\exp, \\max, relations such as \\le, \\ge, \\approx, \\in, arrows, \\mathbb, \\mathcal, \\mathbf, \\mathrm, \\operatorname, \\text{...}, \\left( ... \\right) and accents such as \\hat. A formula using anything else prints as plain text.
+- Write a literal dollar sign as \\$ (e.g. \\$3.2B in assets). Likewise put a backslash before an underscore, asterisk or backtick that should print literally (e.g. snake\\_case).
+- JSON escaping still applies on top: every backslash is doubled inside a JSON string, so $\\alpha$ is written "$\\\\alpha$", \\$3.2B is written "\\\\$3.2B" and snake\\_case is written "snake\\\\_case".
 
 ## Example
 
@@ -188,7 +192,7 @@ Below is a full example showing all block types. This is what a complete output 
               "bullets": [
                 "Designed neural-network-based hedging strategies for incomplete markets with transaction costs, execution delays, and volatility uncertainty.",
                 "Developed a simulation framework for comparing classical delta hedging, utility-based hedging, and deep reinforcement learning approaches.",
-                "Reduced out-of-sample hedging shortfall by 18% relative to benchmark regression-based strategies in synthetic limit-order-book environments."
+                "Reduced out-of-sample hedging shortfall by 18% relative to benchmark regression-based strategies in synthetic limit-order-book environments, with $O(N \\\\log N)$ cost per rebalancing step."
               ]
             }
           ]
@@ -205,7 +209,7 @@ Below is a full example showing all block types. This is what a complete output 
                 "Quantitative Researcher, Systematic Strategies Team.",
                 "Develop factor models for equity index futures and cross-asset volatility strategies using statistical learning and stochastic filtering methods.",
                 "Built production-grade Python libraries for volatility surface construction, scenario generation, and portfolio stress testing.",
-                "Collaborated with traders and engineers to deploy intraday risk dashboards covering approximately USD 3.2B in notional exposure."
+                "Collaborated with traders and engineers to deploy intraday risk dashboards covering approximately \\\\$3.2B in notional exposure."
               ]
             },
             {

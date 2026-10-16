@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, Ref, TextareaHTMLAttributes } from "react";
 import { toggleWrap } from "../lib/editing";
+import { escapeMarkup, mathIssues } from "../lib/markup";
 
 export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 export const MOD = isMac ? "⌘" : "Ctrl+";
@@ -65,24 +66,58 @@ export function TextInput({
   className?: string;
 }) {
   return (
-    <input
-      id={id}
-      className={`text-input ${className}`}
-      value={value}
-      placeholder={placeholder}
-      aria-label={label}
-      spellCheck
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <div className="markup-field">
+      <input
+        id={id}
+        className={`text-input ${className}`}
+        value={value}
+        placeholder={placeholder}
+        aria-label={label}
+        spellCheck
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <MathWarnings value={value} onChange={onChange} />
+    </div>
   );
 }
 
+/** Formulas in a field that will not compile; they are typeset as plain text until fixed. */
+function MathWarnings({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const issues = useMemo(() => mathIssues(value), [value]);
+  if (issues.length === 0) return null;
+  return (
+    <ul className="math-warnings" role="status">
+      {issues.map(({ source, error }, index) => (
+        <li key={index}>
+          <span>
+            <code>${source}$</code> {error}, so it prints as typed.
+          </span>
+          <button
+            type="button"
+            className="link-button"
+            title="Escape the dollar signs so they print as text"
+            onClick={() => onChange(value.replace(`$${source}$`, () => escapeMarkup(`$${source}$`)))}
+          >
+            Keep as text
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Ctrl/⌘+key markers; with Shift, `SHIFT_FORMAT_KEYS`. */
 const FORMAT_KEYS: Record<string, string> = { b: "**", i: "_", e: "`" };
+const SHIFT_FORMAT_KEYS: Record<string, string> = { e: "$" };
 
 type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange" | "value"> & {
   value: string;
   onChange: (value: string) => void;
-  /** Ctrl/⌘+B, I and E wrap the selection in bold, italic and code markers. */
+  /**
+   * Ctrl/⌘+B, I, E and Shift+E wrap the selection in bold, italic, code and
+   * math markers, and formulas that will not compile are flagged. Off for
+   * fields typeset verbatim.
+   */
   formatting?: boolean;
   ref?: Ref<HTMLTextAreaElement>;
 };
@@ -125,8 +160,8 @@ export function TextArea({ value, onChange, formatting = true, className = "", o
   }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    const marker = FORMAT_KEYS[event.key.toLowerCase()];
-    if (formatting && marker && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+    const marker = (event.shiftKey ? SHIFT_FORMAT_KEYS : FORMAT_KEYS)[event.key.toLowerCase()];
+    if (formatting && marker && (event.metaKey || event.ctrlKey) && !event.altKey) {
       event.preventDefault();
       const target = event.currentTarget;
       const edit = toggleWrap(target.value, target.selectionStart, target.selectionEnd, marker);
@@ -138,16 +173,19 @@ export function TextArea({ value, onChange, formatting = true, className = "", o
   };
 
   return (
-    <textarea
-      {...rest}
-      ref={setRefs}
-      rows={1}
-      className={`text-area ${className}`}
-      value={value}
-      spellCheck
-      onKeyDown={handleKeyDown}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <div className="markup-field">
+      <textarea
+        {...rest}
+        ref={setRefs}
+        rows={1}
+        className={`text-area ${className}`}
+        value={value}
+        spellCheck
+        onKeyDown={handleKeyDown}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {formatting && <MathWarnings value={value} onChange={onChange} />}
+    </div>
   );
 }
 

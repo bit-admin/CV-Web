@@ -11,6 +11,7 @@ import type {
   ProjectBlockEntry,
   RoleEntry
 } from "./types";
+import { indexOutsideAtoms, parseMarkup, type MarkupNode } from "./markup";
 
 const LANGUAGE_RENDER_ORDER: CVLanguageCode[] = ["en", "zh", "ja"];
 
@@ -61,56 +62,29 @@ export function escapeLatex(value: string): string {
   return value.replace(/[\\{}$&#%_~^]/g, (char) => LATEX_SPECIALS[char] ?? char);
 }
 
+function renderMarkup(nodes: MarkupNode[]): string {
+  return nodes
+    .map((node) => {
+      switch (node.kind) {
+        case "text":
+          return escapeLatex(node.text);
+        case "bold":
+          return `\\textbf{${renderMarkup(node.children)}}`;
+        case "italic":
+          return `\\textit{${renderMarkup(node.children)}}`;
+        case "code":
+          return `{\\MonoSmallFont ${escapeLatex(node.text)}}`;
+        case "math":
+          // A formula that would not compile is shown as typed instead of failing the whole CV.
+          return node.error ? escapeLatex(`$${node.source}$`) : `$${node.source}$`;
+      }
+    })
+    .join("");
+}
+
+/** Converts a field's inline markup (see `markup.ts`) to LaTeX. */
 export function inlineLatex(value: string): string {
-  const chunks: string[] = [];
-  let index = 0;
-
-  while (index < value.length) {
-    const boldStart = value.indexOf("**", index);
-    const italicStart = value.indexOf("_", index);
-    const codeStart = value.indexOf("`", index);
-    const candidates = [boldStart, italicStart, codeStart].filter((pos) => pos >= 0);
-
-    if (candidates.length === 0) {
-      chunks.push(escapeLatex(value.slice(index)));
-      break;
-    }
-
-    const markerStart = Math.min(...candidates);
-    chunks.push(escapeLatex(value.slice(index, markerStart)));
-
-    if (markerStart === boldStart) {
-      const end = value.indexOf("**", markerStart + 2);
-      if (end < 0) {
-        chunks.push(escapeLatex(value.slice(markerStart)));
-        break;
-      }
-      chunks.push(`\\textbf{${escapeLatex(value.slice(markerStart + 2, end))}}`);
-      index = end + 2;
-      continue;
-    }
-
-    if (markerStart === codeStart) {
-      const end = value.indexOf("`", markerStart + 1);
-      if (end < 0) {
-        chunks.push(escapeLatex(value.slice(markerStart)));
-        break;
-      }
-      chunks.push(`{\\MonoSmallFont ${escapeLatex(value.slice(markerStart + 1, end))}}`);
-      index = end + 1;
-      continue;
-    }
-
-    const end = value.indexOf("_", markerStart + 1);
-    if (end < 0) {
-      chunks.push(escapeLatex(value.slice(markerStart)));
-      break;
-    }
-    chunks.push(`\\textit{${escapeLatex(value.slice(markerStart + 1, end))}}`);
-    index = end + 1;
-  }
-
-  return chunks.join("");
+  return renderMarkup(parseMarkup(value));
 }
 
 function hasText(value: string): boolean {
@@ -226,7 +200,7 @@ function splitDatedText(value: string, language: CVLanguageCode): { title: strin
   const separators = language === "en" ? [",", "，"] : ["，", ","];
 
   for (const separator of separators) {
-    const index = value.indexOf(separator);
+    const index = indexOutsideAtoms(value, separator);
 
     if (index > 0) {
       const detail = value.slice(index + separator.length).trimStart();
@@ -467,6 +441,8 @@ function renderFixedStylePreamble(fonts: Record<CJKFontGroup, boolean>): string 
 
 \usepackage[top=${PAGE_LAYOUT.topCm}cm, bottom=${PAGE_LAYOUT.bottomCm}cm, left=${PAGE_LAYOUT.leftCm}cm, right=${PAGE_LAYOUT.rightCm}cm, marginparwidth=1.75cm]{geometry}
 \usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{fontspec}
 \PassOptionsToPackage{fontset=none}{ctex}
 \usepackage[scheme=plain]{ctex}
@@ -523,6 +499,27 @@ function renderFixedStylePreamble(fonts: Record<CJKFontGroup, boolean>): string 
   Extension=.ttf,
   UprightFont=*-Regular
 ]
+
+% Formulas set Latin letters, digits and operator names (\log, \max) in Sabon
+% to match the text; Greek, symbols and large operators stay Computer Modern.
+\DeclareSymbolFont{cvMathRoman}{TU}{\rmdefault}{m}{n}
+\DeclareSymbolFont{cvMathItalic}{TU}{\rmdefault}{m}{it}
+\DeclareSymbolFontAlphabet{\mathrm}{cvMathRoman}
+\DeclareMathAlphabet{\mathit}{TU}{\rmdefault}{m}{it}
+\DeclareMathAlphabet{\mathbf}{TU}{\rmdefault}{b}{n}
+\makeatletter
+\renewcommand{\operator@font}{\mathgroup\symcvMathRoman}
+\def\cvMathCodes#1#2#3{%
+  \@tempcnta=#1\relax
+  \loop
+    \Umathcode\@tempcnta=7 #3 \@tempcnta
+  \ifnum\@tempcnta<#2\relax \advance\@tempcnta 1 \repeat}
+% After fontspec and ctex, which set their own math codes at \begin{document}.
+\AtBeginDocument{%
+  \cvMathCodes{"61}{"7A}{\symcvMathItalic}% a-z
+  \cvMathCodes{"41}{"5A}{\symcvMathItalic}% A-Z
+  \cvMathCodes{"30}{"39}{\symcvMathRoman}}% 0-9
+\makeatother
 
 ${fonts.zh ? ZH_FONT_SETUP : ""}\newcommand{\zhSong}{\CJKfamily{zhsong}}
 \newcommand{\zhHei}{\CJKfamily{zhhei}}
