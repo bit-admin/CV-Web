@@ -9,7 +9,7 @@ import {
   normalizeDocument,
   normalizeWorkspace
 } from "./document";
-import { cjkFontGroups, escapeLatex, inlineLatex, renderLatex } from "./latex";
+import { cjkFontGroups, contactLink, escapeLatex, inlineLatex, renderLatex } from "./latex";
 import { latexFontAssets } from "./assets";
 import type { CVBlock, CVDocument, CVLanguageCode, CVWorkspace } from "./types";
 
@@ -353,6 +353,34 @@ describe("LaTeX renderer", () => {
     expect(tex).toContain("\\cvMeasureContact{ada@example.com}");
     expect(tex).toContain("\\cvHeaderName{\\NameFont}{Ada Lovelace}{Ph.D.}");
     expect(tex).toContain("\\vspace{-\\cvHeaderOverlap}");
+  });
+
+  it("links email and web contacts and leaves other contacts as text", () => {
+    const document = documentWithBlocks([]);
+    document.header.contacts = ["(+1) 617-555-1948", "ada@example.com", "https://example.com/a_b?q=50%#top", "github.com/ada_l"];
+    const tex = renderLatex(workspaceWithDocument(document));
+
+    expect(tex).toContain("\\usepackage[implicit=false]{hyperref}");
+    expect(tex).toContain("\\hypersetup{hidelinks, breaklinks}");
+    expect(tex).toContain("\\item {\\ContactFont (+1) 617-555-1948}");
+    expect(tex).toContain("\\item {\\ContactFont \\href{mailto:ada@example.com}{ada@example.com}}");
+    // URLs are shown as typed: `_` is not italic markup, and % and # are escaped in the target.
+    expect(tex).toContain(
+      "\\item {\\ContactFont \\href{https://example.com/a_b?q=50\\%\\#top}{https://example.com/a\\_b?q=50\\%\\#top}}"
+    );
+    expect(tex).toContain("\\item {\\ContactFont \\href{https://github.com/ada_l}{github.com/ada\\_l}}");
+    expect(tex).toContain("\\cvMeasureContact{github.com/ada\\_l}");
+  });
+
+  it("recognises only whole email and web addresses as links", () => {
+    expect(contactLink(" ada@example.com ")).toBe("mailto:ada@example.com");
+    expect(contactLink("http://example.com")).toBe("http://example.com");
+    expect(contactLink("www.example.org")).toBe("https://www.example.org");
+    expect(contactLink("linkedin.com/in/ada")).toBe("https://linkedin.com/in/ada");
+    expect(contactLink("Email: ada@example.com")).toBeNull();
+    expect(contactLink("(+1) 617-555-1948")).toBeNull();
+    expect(contactLink("Ph.D.")).toBeNull();
+    expect(contactLink("London, UK")).toBeNull();
   });
 
   it("keeps hidden sections hidden through JSON export and import", () => {

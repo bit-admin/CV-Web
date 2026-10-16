@@ -26,6 +26,9 @@ const STRESS_MATH =
 const STRESS_TEXT =
   `**Bold** _italic_ \`code_x\` A&B 50% \\$5 #1 {x} ~ ^ \\\\ é ü ß ñ — – “quoted” ‘s’ … € £ © ° ± × → • 李明 東京大学 カタカナ ${STRESS_MATH}`;
 
+/** Email and web contacts become \\href links; these include the characters escaped in a link target. */
+const STRESS_LINKS = ["first.last+cv@example.co.uk", "https://example.com/a_b~c?q=50%&r=1#top", "github.com/ada_l"];
+
 /** One use of a whitelisted math command (see `validateMath`). */
 function mathSample(name: string, spec: { args: number; text?: boolean; optional?: boolean }): string {
   const command = `\\${name}`;
@@ -74,7 +77,7 @@ function stressWorkspace(): CVWorkspace {
   const workspace = withLanguages(["en", "zh", "ja"]);
   for (const language of workspace.languages) {
     language.document.header.name = `Maximilian Alexander Wolfeschlegelsteinhausen-Bergerdorff ${STRESS_MATH}`;
-    language.document.header.contacts.push(STRESS_TEXT);
+    language.document.header.contacts.push(...STRESS_LINKS, STRESS_TEXT);
     BLOCK_TYPES.forEach((type, index) => {
       const block = fillStrings(createEmptyBlock(type));
       block.title = `Stress ${type}`;

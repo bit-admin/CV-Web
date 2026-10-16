@@ -787,7 +787,13 @@ ${fonts.ja ? JA_FONT_SETUP : ""}\newcommand{\jpMincho}{\CJKfamily{jpmincho}}
     \textbf{#1} \hfill \\
     \textit{#2} \hfill #3 \\
   \end{tabular}}\cvNoBreakVspace{2pt}
-}`;
+}
+
+% Email and web contacts are links, shown in black without a box.
+% implicit=false: no anchors for sections, which would push each section
+% title down a line in its label box.
+\usepackage[implicit=false]{hyperref}
+\hypersetup{hidelinks, breaklinks}`;
 }
 
 function nameFontForLanguage(language: CVLanguageCode): string {
@@ -802,12 +808,38 @@ function nameFontForLanguage(language: CVLanguageCode): string {
   return "\\NameFont";
 }
 
+const EMAIL = /^[^\s@\\{}]+@[^\s@\\{}]+\.[^\s@\\{}]+$/;
+const URL_WITH_SCHEME = /^https?:\/\/[^\s\\{}]+$/i;
+// A bare web address such as "github.com/ada" or "www.example.org".
+const BARE_URL = /^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s\\{}]*)?$/i;
+
+/** The link target of a contact that is an email address or a web address, or null for anything else. */
+export function contactLink(contact: string): string | null {
+  const value = contact.trim();
+  if (EMAIL.test(value)) return `mailto:${value}`;
+  if (URL_WITH_SCHEME.test(value)) return value;
+  if (BARE_URL.test(value)) return `https://${value}`;
+  return null;
+}
+
+/** An email or web contact is shown as typed (no inline markup, so `_` in a URL stays literal) and links to itself. */
+function contactText(contact: string): string {
+  return contactLink(contact) === null ? inlineLatex(contact) : escapeLatex(contact.trim());
+}
+
+function renderContact(contact: string): string {
+  const link = contactLink(contact);
+  const text = contactText(contact);
+  // In \href's URL argument only % and # need escaping.
+  return link === null ? text : `\\href{${link.replace(/[%#]/g, (char) => `\\${char}`)}}{${text}}`;
+}
+
 function renderHeader(document: CVDocument, language: CVLanguageCode): string {
   const visibleContacts = document.header.contacts.filter(hasText);
-  const contacts = visibleContacts.map((contact) => `  \\item {\\ContactFont ${inlineLatex(contact)}}`).join("\n");
+  const contacts = visibleContacts.map((contact) => `  \\item {\\ContactFont ${renderContact(contact)}}`).join("\n");
   const measureContacts = [
     "\\global\\cvContactWidth=0pt",
-    ...visibleContacts.map((contact) => `\\cvMeasureContact{${inlineLatex(contact)}}`)
+    ...visibleContacts.map((contact) => `\\cvMeasureContact{${contactText(contact)}}`)
   ].join("\n");
 
   return String.raw`${measureContacts}
