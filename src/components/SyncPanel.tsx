@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { parseSyncCode } from "../lib/syncCrypto";
 import {
   Check,
   CloudAlert,
   CloudCheck,
   CloudUpload,
   Copy,
+  Download,
   Eye,
   EyeOff,
+  FileUp,
   HardDrive,
   KeyRound,
   Link2,
@@ -65,125 +68,222 @@ export function SyncButton({ sync, onClick }: { sync: CVSync; onClick: () => voi
   );
 }
 
+const CODE_FILE = "cv-forge-sync-code.txt";
+
+/** Saves the sync code as a small text file the user can keep or open on another device. */
+function downloadCode(code: string) {
+  const text = [
+    "CV Forge sync code",
+    "",
+    code,
+    "",
+    "Keep this file private: anyone with this code can read your synced CVs.",
+    "To sync another device, open CV Forge there, click “Sync devices”, choose “Join with a code”",
+    "and paste the code, or open this file.",
+    "",
+    `Site: ${window.location.origin}`,
+    `Saved: ${new Date().toLocaleString()}`,
+    ""
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = CODE_FILE;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function CodeBox({ code }: { code: string }) {
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
   return (
     <div className="sync-code">
       <code aria-label="Sync code">{shown ? code : code.replace(/[0-9A-Z]/g, "•")}</code>
-      <button type="button" className="secondary-button" onClick={() => setShown(!shown)}>
-        {shown ? <EyeOff size={14} /> : <Eye size={14} />}
-        {shown ? "Hide" : "Show"}
-      </button>
-      <button
-        type="button"
-        className="secondary-button"
-        onClick={() => {
-          void navigator.clipboard?.writeText(code).then(() => {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1500);
-          });
-        }}
-      >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
-        {copied ? "Copied" : "Copy"}
-      </button>
+      <span className="sync-code-actions">
+        <button type="button" className="secondary-button" onClick={() => setShown(!shown)}>
+          {shown ? <EyeOff size={14} /> : <Eye size={14} />}
+          {shown ? "Hide" : "Show"}
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(code).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button type="button" className="secondary-button" onClick={() => downloadCode(code)}>
+          <Download size={14} />
+          Download
+        </button>
+      </span>
     </div>
   );
 }
 
 const FACTS = [
-  { icon: ShieldCheck, text: "Encrypted in your browser before upload. The server cannot read your CVs." },
-  { icon: KeyRound, text: "No account: a private sync code is the only key. Anyone with it can read your CVs." },
-  { icon: Timer, text: "Synced data unused for 180 days is deleted. Your browser’s copy is never affected." }
+  { icon: ShieldCheck, text: "Encrypted in your browser: the server cannot read your CVs." },
+  { icon: KeyRound, text: "No account: the sync code is the only key. Keep it private." },
+  { icon: Timer, text: "Synced data unused for 180 days is deleted; this browser’s copy stays." }
 ];
 
-export function SyncPanel({ sync }: { sync: CVSync }) {
+type StartTab = "create" | "join";
+
+const TABS: Array<{ id: StartTab; icon: typeof CloudUpload; title: string; hint: string }> = [
+  { id: "create", icon: CloudUpload, title: "Create a sync code", hint: "First device to sync" },
+  { id: "join", icon: Link2, title: "Join with a code", hint: "Already syncing elsewhere" }
+];
+
+function StartSync({ sync }: { sync: CVSync }) {
+  const [tab, setTab] = useState<StartTab>("create");
   const [input, setInput] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"create" | "join" | null>(null);
-  const confirm = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  if (!sync.enabled) {
-    return (
-      <div className="sync-panel">
-        <p className="sync-lead">
-          Keep your CVs and versions the same on every computer you use. Sync is optional: without it, everything stays in
-          this browser only.
-        </p>
-        <ul className="sync-facts">
-          {FACTS.map(({ icon: Icon, text }) => (
-            <li key={text}>
-              <Icon size={15} />
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
+  const join = async (code: string) => {
+    setBusy(true);
+    setConnectError(await sync.connect(code));
+    setBusy(false);
+  };
 
-        <h3>How do you want to start?</h3>
-        <div className="sync-choices">
-          <section className="sync-choice">
-            <span className="sync-choice-icon">
-              <CloudUpload size={18} />
+  return (
+    <div className="sync-panel">
+      <p className="sync-lead">
+        Keep your CVs and versions the same on every computer you use. Sync is optional: without it, everything stays in
+        this browser only.
+      </p>
+
+      <div className="sync-tabs" role="tablist" aria-label="How to start syncing">
+        {TABS.map(({ id, icon: Icon, title, hint }, i) => (
+          <button
+            key={id}
+            ref={(element) => void (tabRefs.current[i] = element)}
+            type="button"
+            role="tab"
+            id={`sync-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls={`sync-panel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
+            className="sync-tab"
+            onClick={() => setTab(id)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              const next = TABS[(i + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+              setTab(next.id);
+              tabRefs.current[TABS.indexOf(next)]?.focus();
+            }}
+          >
+            <Icon size={16} />
+            <span>
+              <strong>{title}</strong>
+              <small>{hint}</small>
             </span>
-            <h4>Start syncing from this browser</h4>
-            <p>Choose this if you have not used sync before. You get a sync code to enter on your other devices.</p>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={busy !== null}
-              onClick={async () => {
-                setBusy("create");
-                await sync.enable();
-                setBusy(null);
-              }}
-            >
-              <CloudUpload size={14} />
-              {busy === "create" ? "Creating…" : "Create a sync code"}
-            </button>
-          </section>
-
-          <section className="sync-choice">
-            <span className="sync-choice-icon">
-              <Link2 size={18} />
-            </span>
-            <h4>Join with an existing code</h4>
-            <p>Already syncing on another device? Open Sync there, copy its code and paste it here.</p>
-            <form
-              className="sync-connect"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                setBusy("join");
-                setConnectError(await sync.connect(input));
-                setBusy(null);
-              }}
-            >
-              <input
-                className="text-input"
-                value={input}
-                onChange={(event) => {
-                  setInput(event.target.value);
-                  setConnectError(null);
-                }}
-                placeholder="XXXX-XXXX-XXXX-XXXX-…"
-                aria-label="Sync code"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button type="submit" className={input.trim() ? "primary-button" : "secondary-button"} disabled={busy !== null || !input.trim()}>
-                {busy === "join" ? "Joining…" : "Join"}
-              </button>
-            </form>
-            {connectError ? (
-              <small className="sync-error">{connectError}</small>
-            ) : (
-              <small className="sync-note">CVs already in this browser are added to the synced ones.</small>
-            )}
-          </section>
-        </div>
+          </button>
+        ))}
       </div>
-    );
-  }
+
+      {tab === "create" ? (
+        <div className="sync-tab-panel" role="tabpanel" id="sync-panel-create" aria-labelledby="sync-tab-create">
+          <p>
+            Use this on the first device you sync. A new sync code is created and the CVs in this browser are uploaded.
+            Then enter the code on your other devices.
+          </p>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              await sync.enable();
+              setBusy(false);
+            }}
+          >
+            <CloudUpload size={14} />
+            {busy ? "Creating…" : "Create a sync code"}
+          </button>
+        </div>
+      ) : (
+        <div className="sync-tab-panel" role="tabpanel" id="sync-panel-join" aria-labelledby="sync-tab-join">
+          <p>
+            Paste the sync code from a device that already syncs (open <strong>Synced</strong> in its top bar), or open the
+            code file you downloaded there.
+          </p>
+          <form
+            className="sync-connect"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void join(input);
+            }}
+          >
+            <input
+              className="text-input"
+              value={input}
+              onChange={(event) => {
+                setInput(event.target.value);
+                setConnectError(null);
+              }}
+              placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+              aria-label="Sync code"
+              autoComplete="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <button type="submit" className="primary-button" disabled={busy || !input.trim()}>
+              <Link2 size={14} />
+              {busy ? "Joining…" : "Join"}
+            </button>
+          </form>
+          <div className="sync-join-extra">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".txt,text/plain"
+              hidden
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                const code = (await file.text()).match(/[0-9A-Za-z]{4}(?:[-\s][0-9A-Za-z]{4}){7}/)?.[0];
+                if (!code || !parseSyncCode(code)) {
+                  setConnectError("No sync code was found in that file.");
+                  return;
+                }
+                setInput(parseSyncCode(code)!);
+                void join(code);
+              }}
+            />
+            <button type="button" className="text-button" disabled={busy} onClick={() => fileRef.current?.click()}>
+              <FileUp size={13} />
+              Open a code file
+            </button>
+            <small className="sync-note">CVs already in this browser are added to the synced ones.</small>
+          </div>
+          {connectError && <small className="sync-error">{connectError}</small>}
+        </div>
+      )}
+
+      <ul className="sync-facts">
+        {FACTS.map(({ icon: Icon, text }) => (
+          <li key={text}>
+            <Icon size={14} />
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function SyncPanel({ sync }: { sync: CVSync }) {
+  const confirm = useConfirm();
+  if (!sync.enabled) return <StartSync sync={sync} />;
 
   const { status } = sync;
   return (
@@ -210,12 +310,12 @@ export function SyncPanel({ sync }: { sync: CVSync }) {
       <ol className="sync-steps">
         <li>Open CV Forge on the other device.</li>
         <li>
-          Click <strong>Sync devices</strong> at the top, then <strong>Join with an existing code</strong>.
+          Click <strong>Sync devices</strong> at the top, then <strong>Join with a code</strong>.
         </li>
-        <li>Paste this sync code:</li>
+        <li>Paste this sync code, or open the file from <strong>Download</strong>:</li>
       </ol>
       <CodeBox code={sync.state.code!} />
-      <small className="sync-note">Keep the code private: it is the only key to your synced CVs. Save it somewhere safe, such as a password manager.</small>
+      <small className="sync-note">Keep the code private: it is the only key to your synced CVs. Download it or save it in a password manager: if it is lost, the synced copy cannot be recovered.</small>
 
       <h3>If a CV is edited on two devices</h3>
       <p>The edit that syncs first is kept; the other device saves its own edits as a version named “Edits replaced by another device”, so nothing is lost.</p>
