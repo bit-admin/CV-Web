@@ -113,7 +113,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) {
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
     return;
   }
 

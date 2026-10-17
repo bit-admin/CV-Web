@@ -204,21 +204,81 @@ code {
   white-space: nowrap;
 }
 
-.save-state {
+.sync-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: var(--control);
   margin-left: 8px;
-  color: var(--faint);
-  font-size: 12px;
+  border: 1px solid var(--line-2);
+  padding: 0 4px 0 9px;
+  color: var(--text-2);
+  background: var(--bg);
+  font: inherit;
+  font-size: 12.5px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.save-state::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: var(--ok);
+.sync-button:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-2);
+}
+
+.sync-button > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.sync-button--idle,
+.sync-button--syncing,
+.sync-button--error {
+  padding-right: 9px;
+}
+
+.sync-button--idle > svg {
+  color: var(--ok);
+}
+
+.sync-button--syncing > svg {
+  color: var(--info);
+}
+
+.sync-button--error {
+  border-color: var(--warn-line);
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.sync-button--error > svg {
+  color: var(--warn);
+}
+
+.sync-button-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: calc(var(--control) - 8px);
+  margin-left: 4px;
+  padding: 0 7px;
+  color: var(--info);
+  background: var(--info-bg);
+  font-weight: 600;
+}
+
+.sync-button:hover .sync-button-cta {
+  color: #fff;
+  background: var(--info);
+}
+
+.sync-spin {
+  animation: download-spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-spin {
+    animation: none;
+  }
 }
 
 .topbar-button {
@@ -2995,6 +3055,263 @@ input:focus-visible + .toggle-track {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ── Sync ───────────────────────────────────────────────── */
+
+.sync-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.modal-body .sync-panel p {
+  margin: 0;
+}
+
+.modal-body .sync-panel h3 {
+  margin: 10px 0 0;
+}
+
+.sync-lead {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sync-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+}
+
+.sync-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sync-tab span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.sync-tab strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sync-tab small {
+  font-size: 12px;
+}
+
+.sync-tab svg {
+  flex-shrink: 0;
+}
+
+.sync-tab:hover {
+  color: var(--text);
+}
+
+.sync-tab[aria-selected="true"] {
+  border-color: var(--line-2);
+  color: var(--ink);
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgba(17, 20, 24, 0.06);
+}
+
+.sync-tab[aria-selected="true"] svg {
+  color: var(--info);
+}
+
+.sync-tab[aria-selected="true"] small {
+  color: var(--muted);
+}
+
+.sync-tab:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+}
+
+.sync-tab-panels {
+  display: grid;
+}
+
+.sync-tab-panel {
+  display: flex;
+  grid-area: 1 / 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.sync-tab-panel[data-active="false"] {
+  visibility: hidden;
+}
+
+.sync-file {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: -4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sync-file .link-button:disabled {
+  opacity: 0.5;
+}
+
+.sync-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.sync-facts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-facts svg {
+  flex-shrink: 0;
+  color: var(--ok);
+}
+
+.sync-connect {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.sync-connect .text-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.sync-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sync-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ok-line);
+  background: var(--ok-bg);
+}
+
+.sync-status > svg {
+  flex-shrink: 0;
+  color: var(--ok);
+}
+
+.sync-status > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sync-status strong {
+  color: var(--ink);
+}
+
+.sync-status--error {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+}
+
+.sync-status--error > svg {
+  color: var(--warn);
+}
+
+.sync-status--syncing {
+  border-color: var(--info-line);
+  background: var(--info-bg);
+}
+
+.sync-status--syncing > svg {
+  color: var(--info);
+}
+
+.sync-steps {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.sync-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.sync-code-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.modal-body .sync-code code {
+  display: flex;
+  flex: 1 1 260px;
+  align-items: center;
+  min-height: var(--control);
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  color: var(--ink);
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.sync-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.sync-danger {
+  color: var(--danger);
 }
 
 /* ── Mobile blocker ─────────────────────────────────────── */

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["./*.ts", "../src/lib/syncProtocol.ts"],
+  "exclude": ["./*.test.ts", "./*.testing.ts"]
+}

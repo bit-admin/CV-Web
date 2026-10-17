@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  Cloud,
   Copy,
   Download,
   FilePlus2,
@@ -77,7 +78,17 @@ function InlineRename({ value, onSave, onCancel }: { value: string; onSave: (val
   );
 }
 
-export function LibraryModal({ library, workspace }: { library: CVLibrary; workspace: CVWorkspace }) {
+export function LibraryModal({
+  library,
+  workspace,
+  syncing = false,
+  onOpenSync
+}: {
+  library: CVLibrary;
+  workspace: CVWorkspace;
+  syncing?: boolean;
+  onOpenSync?: () => void;
+}) {
   const { index, active, store, revision } = library;
   const [selectedId, setSelectedId] = useState(active.id);
   const [versions, setVersions] = useState<CVVersion[] | null>(null);
@@ -303,12 +314,20 @@ export function LibraryModal({ library, workspace }: { library: CVLibrary; works
 
       <footer className="library-footer">
         <span>
-          <HardDrive size={14} />
-          {store.persistent
-            ? "Stored only in this browser. Clearing site data deletes it, so keep a backup."
-            : "This browser cannot keep versions after the page closes. Back up to keep them."}
+          {syncing ? <Cloud size={14} /> : <HardDrive size={14} />}
+          {syncing
+            ? "Stored in this browser and synced, encrypted, to your other devices."
+            : store.persistent
+              ? "Stored only in this browser. Clearing site data deletes it, so keep a backup."
+              : "This browser cannot keep versions after the page closes. Back up to keep them."}
         </span>
         <span className="library-footer-actions">
+          {onOpenSync && (
+            <button type="button" className="ghost-button" onClick={onOpenSync}>
+              <Cloud size={14} />
+              {syncing ? "Sync settings" : "Sync…"}
+            </button>
+          )}
           <input
             ref={importRef}
             type="file"
