@@ -34,6 +34,10 @@ async function request(keys: SyncKeys, init: RequestInit): Promise<Response> {
   } catch {
     throw new SyncHttpError(0, "Offline: changes will sync when the connection is back.");
   }
+  // A Cloudflare WAF challenge (its clearance cookie expired) answers with a challenge page, not the Worker.
+  if (response.headers.get("cf-mitigated") === "challenge") {
+    throw new SyncHttpError(response.status, "Cloudflare's security check has expired. Reload the page to continue syncing.");
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as SyncErrorBody | null;
     throw new SyncHttpError(response.status, errorMessage(response.status, body));
