@@ -13,7 +13,7 @@ A privacy-first CV/resume builder that compiles LaTeX to PDF entirely in your br
 
 ## Sync (optional)
 
-Off by default: everything stays in the browser (localStorage for working copies, IndexedDB for versions). Turning sync on (click “Saved locally” in the top bar) creates a **sync code**, which another browser enters to join.
+Off by default: everything stays in the browser (localStorage for working copies, IndexedDB for versions). Turning sync on (“Sync devices” in the top bar) creates a **sync code**, which another browser enters to join.
 
 - **No account.** Three values are derived from the code with HKDF: the sync space id (in the URL), an access token (the server stores only its SHA-256 hash) and an AES-GCM key. Every CV and version is gzipped and encrypted in the browser, with its item id as associated data; the server only sees ciphertext. Losing the code loses the synced copy, never the local one.
 - **Storage.** One SQLite-backed Durable Object per sync code (`worker/`), which works on the Workers Free plan. Each CV (name + working copy) and each version is one row; every write bumps a per-space counter (`seq`) so clients pull only what changed since the last seq they saw. Writes are compare-and-swap on each item's seq.

@@ -204,46 +204,81 @@ code {
   white-space: nowrap;
 }
 
-.save-state {
+.sync-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: var(--control);
   margin-left: 8px;
-  padding: 2px 4px;
-  border: 0;
-  background: none;
-  color: var(--faint);
+  border: 1px solid var(--line-2);
+  padding: 0 4px 0 9px;
+  color: var(--text-2);
+  background: var(--bg);
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.save-state:hover {
-  color: var(--text-2);
+.sync-button:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-2);
 }
 
-.save-state::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: var(--ok);
+.sync-button > svg {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 
-.save-state--local::before {
-  background: var(--faint);
+.sync-button--idle,
+.sync-button--syncing,
+.sync-button--error {
+  padding-right: 9px;
 }
 
-.save-state--busy::before {
-  background: var(--info);
+.sync-button--idle > svg {
+  color: var(--ok);
 }
 
-.save-state--error {
+.sync-button--syncing > svg {
+  color: var(--info);
+}
+
+.sync-button--error {
+  border-color: var(--warn-line);
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.sync-button--error > svg {
   color: var(--warn);
 }
 
-.save-state--error::before {
-  background: var(--warn);
+.sync-button-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: calc(var(--control) - 8px);
+  margin-left: 4px;
+  padding: 0 7px;
+  color: var(--info);
+  background: var(--info-bg);
+  font-weight: 600;
+}
+
+.sync-button:hover .sync-button-cta {
+  color: #fff;
+  background: var(--info);
+}
+
+.sync-spin {
+  animation: download-spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-spin {
+    animation: none;
+  }
 }
 
 .topbar-button {
@@ -3027,59 +3062,88 @@ input:focus-visible + .toggle-track {
 .sync-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  color: var(--text);
+  gap: 10px;
+  color: var(--text-2);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-.sync-panel p {
+.modal-body .sync-panel p {
   margin: 0;
 }
 
-.sync-panel h3 {
-  margin: 4px 0 0;
-  font-size: 13px;
+.modal-body .sync-panel h3 {
+  margin: 10px 0 0;
 }
 
-.sync-points {
+.sync-lead {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sync-facts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
   list-style: none;
-  color: var(--text-2);
 }
 
-.sync-points li {
+.sync-facts li {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-.sync-points svg {
+.sync-facts svg {
   flex-shrink: 0;
-  margin-top: 3px;
+  margin-top: 2px;
+  color: var(--ok);
 }
 
-.sync-actions {
+.sync-choices {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
 }
 
-.sync-actions section {
+.sync-choice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  background: var(--bg-2);
+  padding: 16px;
+  border: 1px solid var(--line-2);
+  background: var(--bg);
 }
 
-.sync-actions section p {
-  color: var(--text-2);
+.sync-choice:focus-within,
+.sync-choice:hover {
+  border-color: var(--line-strong);
+}
+
+.sync-choice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--info);
+  background: var(--info-bg);
+}
+
+.sync-choice h4 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.modal-body .sync-choice p {
+  flex: 1;
+  margin: 0 0 4px;
 }
 
 .sync-connect {
@@ -3092,19 +3156,31 @@ input:focus-visible + .toggle-track {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.sync-note {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .sync-error {
   color: var(--danger);
+  font-size: 12px;
 }
 
 .sync-status {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--ok-line);
   background: var(--ok-bg);
+}
+
+.sync-status > svg {
+  flex-shrink: 0;
+  color: var(--ok);
 }
 
 .sync-status > span {
@@ -3114,8 +3190,8 @@ input:focus-visible + .toggle-track {
   min-width: 0;
 }
 
-.sync-status small {
-  color: var(--text-2);
+.sync-status strong {
+  color: var(--ink);
 }
 
 .sync-status--error {
@@ -3123,27 +3199,54 @@ input:focus-visible + .toggle-track {
   background: var(--warn-bg);
 }
 
+.sync-status--error > svg {
+  color: var(--warn);
+}
+
 .sync-status--syncing {
   border-color: var(--info-line);
   background: var(--info-bg);
 }
 
-.sync-code {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.sync-status--syncing > svg {
+  color: var(--info);
 }
 
-.sync-code code {
+.sync-steps {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.sync-code {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.modal-body .sync-code code {
+  display: flex;
   flex: 1;
-  padding: 6px 10px;
+  align-items: center;
+  min-height: var(--control);
+  padding: 4px 10px;
   border: 1px solid var(--line-2);
+  color: var(--ink);
   background: var(--bg-2);
   font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.03em;
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
   overflow-wrap: anywhere;
   user-select: all;
+}
+
+.sync-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .sync-danger {

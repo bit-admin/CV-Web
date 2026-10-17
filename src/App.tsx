@@ -28,7 +28,7 @@ import { LayoutDock } from "./components/LayoutPanel";
 import { LibraryModal } from "./components/LibraryModal";
 import { PdfPreview, scrollPreviewToPage, type PageInfo, type PreviewFocus, type Zoom } from "./components/PdfPreview";
 import { Sidebar } from "./components/Sidebar";
-import { SyncPanel, syncLabel } from "./components/SyncPanel";
+import { SyncButton, SyncPanel } from "./components/SyncPanel";
 import { IconButton, Kbd, keys, MenuButton, MOD } from "./components/ui";
 import { createEmptyBlock, createSampleWorkspace, duplicateBlock } from "./lib/document";
 import { summarizeTexLog } from "./lib/editing";
@@ -227,7 +227,6 @@ export function App() {
   const library = useLibrary(boot.index, workspace, replaceFromLibrary, handleSwitched);
   const { saveNamedVersion, saveVersion } = library;
   const sync = useSync(library.syncLocal, [workspace, library.index, library.revision], library.notify);
-  const syncState = syncLabel(sync);
 
   const activeLanguage = workspace.languages.find((language) => language.code === workspace.activeLanguage) ?? workspace.languages[0];
   const cvDocument = activeLanguage.document;
@@ -673,9 +672,7 @@ export function App() {
             <span className="cv-switcher-name">{library.active.name}</span>
             <ChevronDown size={13} />
           </button>
-          <button type="button" className={`save-state save-state--${syncState.tone}`} title={syncState.title} onClick={() => setActiveModal("sync")}>
-            {syncState.text}
-          </button>
+          <SyncButton sync={sync} onClick={() => setActiveModal("sync")} />
         </div>
         <div className="topbar-group">
           <IconButton variant="ghost" label={`Undo (${MOD}Z)`} disabled={!history.canUndo} onClick={() => history.undo()}>
