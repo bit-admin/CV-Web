@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseSyncCode } from "../lib/syncCrypto";
 import {
   Check,
@@ -145,6 +145,13 @@ function StartSync({ sync }: { sync: CVSync }) {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Clicking "Join with a code" moves focus to the code field once its panel is interactive.
+  const focusInput = useRef(false);
+  useEffect(() => {
+    if (tab === "join" && focusInput.current) inputRef.current?.focus();
+    focusInput.current = false;
+  }, [tab]);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const join = async (code: string) => {
@@ -172,7 +179,10 @@ function StartSync({ sync }: { sync: CVSync }) {
             aria-controls={`sync-panel-${id}`}
             tabIndex={tab === id ? 0 : -1}
             className="sync-tab"
-            onClick={() => setTab(id)}
+            onClick={() => {
+              focusInput.current = id === "join";
+              setTab(id);
+            }}
             onKeyDown={(event) => {
               if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
               const next = TABS[(i + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
@@ -189,8 +199,16 @@ function StartSync({ sync }: { sync: CVSync }) {
         ))}
       </div>
 
-      {tab === "create" ? (
-        <div className="sync-tab-panel" role="tabpanel" id="sync-panel-create" aria-labelledby="sync-tab-create">
+      {/* Both panels stay laid out in one grid cell, so switching tabs never changes the dialog's height. */}
+      <div className="sync-tab-panels">
+        <div
+          className="sync-tab-panel"
+          role="tabpanel"
+          id="sync-panel-create"
+          aria-labelledby="sync-tab-create"
+          inert={tab !== "create"}
+          data-active={tab === "create"}
+        >
           <p>
             Use this on the first device you sync. A new sync code is created and the CVs in this browser are uploaded.
             Then enter the code on your other devices.
@@ -209,11 +227,18 @@ function StartSync({ sync }: { sync: CVSync }) {
             {busy ? "Creating…" : "Create a sync code"}
           </button>
         </div>
-      ) : (
-        <div className="sync-tab-panel" role="tabpanel" id="sync-panel-join" aria-labelledby="sync-tab-join">
+
+        <div
+          className="sync-tab-panel"
+          role="tabpanel"
+          id="sync-panel-join"
+          aria-labelledby="sync-tab-join"
+          inert={tab !== "join"}
+          data-active={tab === "join"}
+        >
           <p>
-            Paste the sync code from a device that already syncs (open <strong>Synced</strong> in its top bar), or open the
-            code file you downloaded there.
+            Paste the code from a device that already syncs (click <strong>Synced</strong> in its top bar). CVs already in
+            this browser are added to the synced ones.
           </p>
           <form
             className="sync-connect"
@@ -223,6 +248,7 @@ function StartSync({ sync }: { sync: CVSync }) {
             }}
           >
             <input
+              ref={inputRef}
               className="text-input"
               value={input}
               onChange={(event) => {
@@ -233,41 +259,43 @@ function StartSync({ sync }: { sync: CVSync }) {
               aria-label="Sync code"
               autoComplete="off"
               spellCheck={false}
-              autoFocus
             />
             <button type="submit" className="primary-button" disabled={busy || !input.trim()}>
               <Link2 size={14} />
               {busy ? "Joining…" : "Join"}
             </button>
           </form>
-          <div className="sync-join-extra">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".txt,text/plain"
-              hidden
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (!file) return;
-                const code = (await file.text()).match(/[0-9A-Za-z]{4}(?:[-\s][0-9A-Za-z]{4}){7}/)?.[0];
-                if (!code || !parseSyncCode(code)) {
-                  setConnectError("No sync code was found in that file.");
-                  return;
-                }
-                setInput(parseSyncCode(code)!);
-                void join(code);
-              }}
-            />
-            <button type="button" className="text-button" disabled={busy} onClick={() => fileRef.current?.click()}>
-              <FileUp size={13} />
-              Open a code file
-            </button>
-            <small className="sync-note">CVs already in this browser are added to the synced ones.</small>
-          </div>
-          {connectError && <small className="sync-error">{connectError}</small>}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,text/plain"
+            hidden
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              const code = (await file.text()).match(/[0-9A-Za-z]{4}(?:[-\s][0-9A-Za-z]{4}){7}/)?.[0];
+              if (!code || !parseSyncCode(code)) {
+                setConnectError("No sync code was found in that file.");
+                return;
+              }
+              setInput(parseSyncCode(code)!);
+              void join(code);
+            }}
+          />
+          {connectError ? (
+            <small className="sync-error">{connectError}</small>
+          ) : (
+            <small className="sync-file">
+              Downloaded the code as a file?{" "}
+              <button type="button" className="link-button" disabled={busy} onClick={() => fileRef.current?.click()}>
+                <FileUp size={13} />
+                Open it instead
+              </button>
+            </small>
+          )}
         </div>
-      )}
+      </div>
 
       <ul className="sync-facts">
         {FACTS.map(({ icon: Icon, text }) => (
